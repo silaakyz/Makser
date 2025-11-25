@@ -37,13 +37,13 @@ export function AppSidebar() {
       <SidebarContent>
         <div className="p-6 border-b border-sidebar-border">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-              <Factory className="w-6 h-6 text-primary-foreground" />
+            <div className="w-12 h-12 bg-primary rounded flex items-center justify-center">
+              <span className="text-2xl font-bold text-primary-foreground">M</span>
             </div>
             {open && (
               <div>
-                <h2 className="font-bold text-lg text-sidebar-foreground">ÜRETİM</h2>
-                <p className="text-xs text-muted-foreground">Yönetim Sistemi</p>
+                <h2 className="font-bold text-xl text-sidebar-foreground">MAKSER</h2>
+                <p className="text-xs text-sidebar-foreground/70">Makine Yönetim</p>
               </div>
             )}
           </div>

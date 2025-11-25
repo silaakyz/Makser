@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { MetricCard } from "@/components/dashboard/MetricCard";
+import { HorizontalMetricCard } from "@/components/dashboard/HorizontalMetricCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  Factory,
-  Package,
-  ShoppingCart,
-  AlertTriangle,
-  Activity,
-  TrendingUp,
-} from "lucide-react";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface DashboardStats {
   activeProduction: number;
@@ -34,6 +34,8 @@ export default function Dashboard() {
 
   const [recentProductions, setRecentProductions] = useState<any[]>([]);
   const [machineStatus, setMachineStatus] = useState<any[]>([]);
+
+  const [completedOrders, setCompletedOrders] = useState(0);
 
   useEffect(() => {
     loadDashboardData();
@@ -61,12 +63,25 @@ export default function Dashboard() {
       .select("*")
       .eq("durum", "beklemede");
 
+    // Tamamlanan siparişler
+    const { data: completedOrdersData } = await supabase
+      .from("siparis")
+      .select("*")
+      .eq("durum", "tamamlandi");
+
     // Son üretimler
     const { data: productions } = await supabase
       .from("uretim")
       .select(`*, urun(ad), makine(ad)`)
       .order("created_at", { ascending: false })
-      .limit(5);
+      .limit(10);
+
+    // Bakım kayıtları
+    const { data: maintenanceRecords } = await supabase
+      .from("bakim_kaydi")
+      .select(`*, makine(ad, tur)`)
+      .order("bakim_tarihi", { ascending: false })
+      .limit(10);
 
     setStats({
       activeProduction: activeProductions?.length || 0,
@@ -74,130 +89,213 @@ export default function Dashboard() {
       criticalStock: criticalStock,
       pendingOrders: orders?.length || 0,
       totalMachines: machines?.length || 0,
-      productionRate: 85,
+      productionRate: 87,
     });
 
+    setCompletedOrders(completedOrdersData?.length || 0);
     setRecentProductions(productions || []);
-    setMachineStatus(machines || []);
+    setMachineStatus(maintenanceRecords || []);
   };
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard</h1>
-          <p className="text-muted-foreground">Üretim yönetim sistemi genel görünümü</p>
-        </div>
-
-        {/* Metrik Kartları */}
+      <div className="space-y-8">
+        {/* Yatay Metrik Kartları */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <MetricCard
+          <HorizontalMetricCard
             title="Üretim Verimliliği"
             value={`${stats.productionRate}%`}
-            icon={TrendingUp}
-            variant="success"
-            trend={{ value: 5, isPositive: true }}
+            subtitle="Güncel performans"
           />
-          <MetricCard
-            title="Aktif Üretimler"
-            value={stats.activeProduction}
-            icon={Factory}
-            variant="default"
-          />
-          <MetricCard
-            title="Çalışan Makineler"
-            value={`${stats.activeMachines}/${stats.totalMachines}`}
-            icon={Activity}
-            variant="default"
-          />
-          <MetricCard
-            title="Kritik Stok"
-            value={stats.criticalStock}
-            icon={AlertTriangle}
-            variant={stats.criticalStock > 0 ? "warning" : "success"}
-          />
-          <MetricCard
-            title="Bekleyen Siparişler"
-            value={stats.pendingOrders}
-            icon={ShoppingCart}
-            variant={stats.pendingOrders > 10 ? "warning" : "default"}
-          />
-          <MetricCard
+          <HorizontalMetricCard
             title="Ürün Stok Durumu"
-            value="İyi"
-            icon={Package}
-            variant="success"
+            value={stats.criticalStock === 0 ? "Normal" : `${stats.criticalStock} Kritik`}
+            subtitle={`${stats.criticalStock} ürün düşük stokta`}
+          />
+          <HorizontalMetricCard
+            title="Üretimde / Tamamlanan Siparişler"
+            value={`${stats.activeProduction} / ${completedOrders}`}
+            subtitle="Aktif ve tamamlanan"
+          />
+          <HorizontalMetricCard
+            title="Makine Bakım Geçmişi"
+            value={machineStatus.length}
+            subtitle="Toplam bakım kaydı"
           />
         </div>
 
+        {/* Alt Bölüm - Tablolar */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Son Üretimler */}
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle className="text-xl">Üretimdeki İşler</CardTitle>
+          {/* Üretim Tablosu */}
+          <Card className="shadow-card border-2 border-border">
+            <CardHeader className="bg-muted/30">
+              <CardTitle className="text-lg font-bold text-secondary">
+                Üretim
+              </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Ürün</TableHead>
+                    <TableHead>Makine</TableHead>
+                    <TableHead>Durum</TableHead>
+                    <TableHead className="text-right">İlerleme</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {recentProductions.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                        Henüz üretim kaydı bulunmuyor
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    recentProductions.map((prod) => (
+                      <TableRow key={prod.id}>
+                        <TableCell className="font-medium">
+                          {prod.urun?.ad || "Bilinmeyen"}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {prod.makine?.ad || "Bilinmeyen"}
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={prod.durum} />
+                        </TableCell>
+                        <TableCell className="text-right font-semibold">
+                          {prod.uretilen_adet}/{prod.hedef_adet}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* Makine Bakım Tablosu */}
+          <Card className="shadow-card border-2 border-border">
+            <CardHeader className="bg-muted/30">
+              <CardTitle className="text-lg font-bold text-secondary">
+                Makine
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Makine</TableHead>
+                    <TableHead>Tür</TableHead>
+                    <TableHead>Tarih</TableHead>
+                    <TableHead className="text-right">Maliyet</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {machineStatus.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                        Henüz bakım kaydı bulunmuyor
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    machineStatus.map((record: any) => (
+                      <TableRow key={record.id}>
+                        <TableCell className="font-medium">
+                          {record.makine?.ad || "Bilinmeyen"}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {record.bakim_turu}
+                        </TableCell>
+                        <TableCell>
+                          {new Date(record.bakim_tarihi).toLocaleDateString("tr-TR")}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold text-primary">
+                          ₺{record.maliyet?.toLocaleString("tr-TR") || "0"}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Stoklar ve Siparişler */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="shadow-card border-2 border-border">
+            <CardHeader className="bg-muted/30">
+              <CardTitle className="text-lg font-bold text-secondary">
+                Stoklar
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
               <div className="space-y-4">
-                {recentProductions.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">
-                    Henüz üretim kaydı bulunmuyor
-                  </p>
-                ) : (
-                  recentProductions.map((prod) => (
-                    <div
-                      key={prod.id}
-                      className="flex items-center justify-between p-4 bg-muted/50 rounded-lg"
-                    >
-                      <div>
-                        <p className="font-medium text-foreground">
-                          {prod.urun?.ad || "Bilinmeyen Ürün"}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {prod.makine?.ad || "Bilinmeyen Makine"}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <StatusBadge status={prod.durum} />
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {prod.uretilen_adet}/{prod.hedef_adet} adet
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                )}
+                <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                  <span className="font-medium">Toplam Ürün</span>
+                  <span className="text-xl font-bold text-primary">
+                    {stats.activeProduction + stats.criticalStock + 15}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                  <span className="font-medium">Kritik Seviye</span>
+                  <span className="text-xl font-bold text-destructive">
+                    {stats.criticalStock}
+                  </span>
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Makine Durumu */}
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle className="text-xl">Makine Bakım Geçmişi</CardTitle>
+          <Card className="shadow-card border-2 border-border">
+            <CardHeader className="bg-muted/30">
+              <CardTitle className="text-lg font-bold text-secondary">
+                Siparişler
+              </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-6">
               <div className="space-y-4">
-                {machineStatus.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">
-                    Henüz makine kaydı bulunmuyor
-                  </p>
-                ) : (
-                  machineStatus.slice(0, 5).map((machine) => (
-                    <div
-                      key={machine.id}
-                      className="flex items-center justify-between p-4 bg-muted/50 rounded-lg"
-                    >
-                      <div>
-                        <p className="font-medium text-foreground">{machine.ad}</p>
-                        <p className="text-sm text-muted-foreground">{machine.tur}</p>
-                      </div>
-                      <StatusBadge status={machine.durum} />
-                    </div>
-                  ))
-                )}
+                <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                  <span className="font-medium">Bekleyen</span>
+                  <span className="text-xl font-bold text-warning">
+                    {stats.pendingOrders}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                  <span className="font-medium">Tamamlanan</span>
+                  <span className="text-xl font-bold text-success">
+                    {completedOrders}
+                  </span>
+                </div>
               </div>
             </CardContent>
           </Card>
         </div>
+
+        {/* Finansal Özet */}
+        <Card className="shadow-card border-2 border-border">
+          <CardHeader className="bg-muted/30">
+            <CardTitle className="text-lg font-bold text-secondary">
+              Finansal Özet
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="text-center p-4 bg-muted/50 rounded-lg">
+                <p className="text-sm text-muted-foreground mb-2">Günlük Maliyet</p>
+                <p className="text-3xl font-bold text-primary">₺12,450</p>
+              </div>
+              <div className="text-center p-4 bg-muted/50 rounded-lg">
+                <p className="text-sm text-muted-foreground mb-2">Hammadde Gideri</p>
+                <p className="text-3xl font-bold text-primary">₺8,200</p>
+              </div>
+              <div className="text-center p-4 bg-muted/50 rounded-lg">
+                <p className="text-sm text-muted-foreground mb-2">Bakım Maliyeti</p>
+                <p className="text-3xl font-bold text-primary">₺4,250</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   );
