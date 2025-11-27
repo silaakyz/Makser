@@ -1,8 +1,10 @@
+// src/App.tsx
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+
 import Dashboard from "./pages/Dashboard";
 import Uretim from "./pages/Uretim";
 import Makine from "./pages/Makine";
@@ -11,6 +13,9 @@ import Siparisler from "./pages/Siparisler";
 import Finansal from "./pages/Finansal";
 import Uyarilar from "./pages/Uyarilar";
 import NotFound from "./pages/NotFound";
+
+// Yeni üretim modülü import
+import ProductionModule from "./modules/Production/ProductionModule"; // ✅ Yol ve isim düzeltildi
 
 const queryClient = new QueryClient();
 
@@ -21,6 +26,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
+          {/* Mevcut sayfalar */}
           <Route path="/" element={<Dashboard />} />
           <Route path="/uretim" element={<Uretim />} />
           <Route path="/makine" element={<Makine />} />
@@ -28,7 +34,11 @@ const App = () => (
           <Route path="/siparisler" element={<Siparisler />} />
           <Route path="/finansal" element={<Finansal />} />
           <Route path="/uyarilar" element={<Uyarilar />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+
+          {/* ✅ Yeni Üretim Modülü Route */}
+          <Route path="/yeni-uretim" element={<ProductionModule />} />
+
+          {/* Catch-all */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

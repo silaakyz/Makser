@@ -19,13 +19,23 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const menuItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Üretim", url: "/uretim", icon: Factory },
-  { title: "Makine", url: "/makine", icon: Settings },
-  { title: "Stoklar", url: "/stoklar", icon: Package },
-  { title: "Siparişler", url: "/siparisler", icon: ShoppingCart },
-  { title: "Finansal Özet", url: "/finansal", icon: DollarSign },
+// ✅ Menü öğeleri
+interface MenuItem {
+  id: number;
+  name: string;
+  path: string;
+  icon: any; // Lucide icon tipi
+}
+
+const menuItems: MenuItem[] = [
+  { id: 0, name: "Yeni Üretim", path: "/yeni-uretim", icon: Factory }, // Yeni eklenen
+  { id: 1, name: "Üretim Durumu", path: "/production", icon: Factory }, // Yeni eklenen
+  { id: 2, name: "Dashboard", path: "/", icon: LayoutDashboard },
+  { id: 3, name: "Üretim", path: "/uretim", icon: Factory },
+  { id: 4, name: "Makine", path: "/makine", icon: Settings },
+  { id: 5, name: "Stoklar", path: "/stoklar", icon: Package },
+  { id: 6, name: "Siparişler", path: "/siparisler", icon: ShoppingCart },
+  { id: 7, name: "Finansal Özet", path: "/finansal", icon: DollarSign },
 ];
 
 export function AppSidebar() {
@@ -39,12 +49,12 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => {
-                const isActive = location.pathname === item.url;
+                const isActive = location.pathname === item.path;
                 return (
-                  <SidebarMenuItem key={item.url}>
+                  <SidebarMenuItem key={item.id}>
                     <SidebarMenuButton asChild>
                       <NavLink
-                        to={item.url}
+                        to={item.path}
                         className={`flex items-center gap-3 px-4 py-3 rounded-full mx-3 transition-all ${
                           isActive
                             ? "bg-primary text-primary-foreground font-semibold shadow-glow"
@@ -52,7 +62,7 @@ export function AppSidebar() {
                         }`}
                       >
                         <item.icon className="w-5 h-5" />
-                        {open && <span>{item.title}</span>}
+                        {open && <span>{item.name}</span>}
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
