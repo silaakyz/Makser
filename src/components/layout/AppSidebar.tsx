@@ -28,8 +28,8 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
-  { id: 0, name: "Yeni Üretim", path: "/yeni-uretim", icon: Factory },
-  { id: 1, name: "Dashboard", path: "/", icon: LayoutDashboard },
+  { id: 0, name: "Dashboard", path: "/", icon: LayoutDashboard },
+  { id: 1, name: "Yeni Üretim", path: "/yeni-uretim", icon: Factory },
   { id: 2, name: "Üretim", path: "/uretim", icon: Factory },
   { id: 3, name: "Makine", path: "/makine", icon: Settings },
   { id: 4, name: "Stoklar", path: "/stoklar", icon: Package },
