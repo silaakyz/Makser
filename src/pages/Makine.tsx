@@ -4,20 +4,74 @@ import { ChartPlaceholder } from "@/components/dashboard/ChartPlaceholder";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { mockMachines, mockArizalar, mockBakimlar, mockKPIs } from "@/lib/mockData";
-import { Settings, AlertTriangle, Wrench, Activity } from "lucide-react";
+import { Settings, AlertTriangle, Wrench, Activity, Download } from "lucide-react";
+import * as XLSX from "xlsx";
+import { toast } from "sonner";
 
 export default function Makine() {
   const aktifMakineler = mockMachines.filter(m => m.durum === "aktif").length;
   const arizaliMakineler = mockMachines.filter(m => m.durum === "arızalı").length;
   const bakimdaMakineler = mockMachines.filter(m => m.durum === "bakımda").length;
 
+  const exportToExcel = () => {
+    // Makineler için worksheet
+    const machineData = mockMachines.map((m) => ({
+      "Makine Adı": m.ad,
+      "Makine Türü": m.tur,
+      "Durum": m.durum,
+      "Kapasite (adet/saat)": m.uretim_kapasitesi,
+      "Son Bakım": m.son_bakim_tarihi || "-",
+      "Sonraki Bakım": m.sonraki_bakim_tarihi || "-",
+    }));
+
+    // Bakımlar için worksheet
+    const bakimData = mockBakimlar.map((b) => ({
+      "Makine": b.makine,
+      "Bakım Tarihi": b.bakim_tarihi,
+      "Bakım Türü": b.bakim_turu,
+      "Maliyet (₺)": b.maliyet,
+      "Açıklama": b.aciklama,
+    }));
+
+    // Arızalar için worksheet
+    const arizaData = mockArizalar.map((a) => ({
+      "Makine": a.makine,
+      "Başlangıç": a.baslangic_tarihi,
+      "Bitiş": a.bitis_tarihi || "Devam ediyor",
+      "Süre (Saat)": a.sure_saat || "-",
+      "Maliyet (₺)": a.maliyet || "-",
+      "Açıklama": a.aciklama,
+    }));
+
+    const wb = XLSX.utils.book_new();
+    const wsMachines = XLSX.utils.json_to_sheet(machineData);
+    const wsBakim = XLSX.utils.json_to_sheet(bakimData);
+    const wsAriza = XLSX.utils.json_to_sheet(arizaData);
+
+    XLSX.utils.book_append_sheet(wb, wsMachines, "Makineler");
+    XLSX.utils.book_append_sheet(wb, wsBakim, "Bakım Kayıtları");
+    XLSX.utils.book_append_sheet(wb, wsAriza, "Arıza Kayıtları");
+
+    const fileName = `Makine_Raporu_${new Date().toISOString().split("T")[0]}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    
+    toast.success("Makine raporu başarıyla indirildi!");
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Makine Yönetimi</h1>
-          <p className="text-white/70">Makine durumu, bakım ve arıza takibi</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">Makine Yönetimi</h1>
+            <p className="text-white/70">Makine durumu, bakım ve arıza takibi</p>
+          </div>
+          <Button onClick={exportToExcel} className="gap-2">
+            <Download className="w-4 h-4" />
+            Excel Raporu İndir
+          </Button>
         </div>
 
         {/* KPI Cards */}

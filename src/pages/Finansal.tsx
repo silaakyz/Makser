@@ -3,8 +3,11 @@ import { KpiCard } from "@/components/dashboard/KpiCard";
 import { ChartPlaceholder } from "@/components/dashboard/ChartPlaceholder";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { mockFinansal } from "@/lib/mockData";
-import { DollarSign, TrendingUp, TrendingDown, Wrench } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, Wrench, Download } from "lucide-react";
+import * as XLSX from "xlsx";
+import { toast } from "sonner";
 
 export default function Finansal() {
   const toplamGelir = mockFinansal.urunKarliligi.reduce(
@@ -16,12 +19,56 @@ export default function Finansal() {
   const toplamKar = toplamGelir - toplamMaliyet;
   const karMarji = ((toplamKar / toplamGelir) * 100).toFixed(1);
 
+  const exportToExcel = () => {
+    // Maliyet özeti
+    const maliyetData = [
+      { "Maliyet Tipi": "Günlük Maliyet", "Tutar (₺)": mockFinansal.gunlukMaliyet },
+      { "Maliyet Tipi": "Haftalık Maliyet", "Tutar (₺)": mockFinansal.haftalikMaliyet },
+      { "Maliyet Tipi": "Hammadde Maliyeti", "Tutar (₺)": mockFinansal.hammaddeMaliyeti },
+      { "Maliyet Tipi": "Bakım Maliyeti", "Tutar (₺)": mockFinansal.bakimMaliyeti },
+      { "Maliyet Tipi": "Arıza Maliyeti", "Tutar (₺)": mockFinansal.arizaMaliyeti },
+    ];
+
+    // Ürün kârlılığı
+    const karlilikkData = mockFinansal.urunKarliligi.map((u) => {
+      const toplamKar = u.kar * u.miktar;
+      const karMarji = ((u.kar / u.satis) * 100).toFixed(1);
+      return {
+        "Ürün": u.urun,
+        "Birim Maliyet (₺)": u.maliyet,
+        "Satış Fiyatı (₺)": u.satis,
+        "Birim Kâr (₺)": u.kar,
+        "Üretilen Miktar": u.miktar,
+        "Toplam Kâr (₺)": toplamKar,
+        "Kâr Marjı (%)": karMarji,
+      };
+    });
+
+    const wb = XLSX.utils.book_new();
+    const wsMaliyet = XLSX.utils.json_to_sheet(maliyetData);
+    const wsKarlilik = XLSX.utils.json_to_sheet(karlilikkData);
+
+    XLSX.utils.book_append_sheet(wb, wsMaliyet, "Maliyet Özeti");
+    XLSX.utils.book_append_sheet(wb, wsKarlilik, "Ürün Kârlılığı");
+
+    const fileName = `Finansal_Rapor_${new Date().toISOString().split("T")[0]}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    
+    toast.success("Finansal rapor başarıyla indirildi!");
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Finansal Özet</h1>
-          <p className="text-white/70">Maliyet analizi ve kârlılık raporları</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">Finansal Özet</h1>
+            <p className="text-white/70">Maliyet analizi ve kârlılık raporları</p>
+          </div>
+          <Button onClick={exportToExcel} className="gap-2">
+            <Download className="w-4 h-4" />
+            Excel Raporu İndir
+          </Button>
         </div>
 
         {/* KPI Cards */}

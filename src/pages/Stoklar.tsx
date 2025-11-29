@@ -4,8 +4,11 @@ import { ChartPlaceholder } from "@/components/dashboard/ChartPlaceholder";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { mockHammaddeler, mockUrunler } from "@/lib/mockData";
-import { Package, AlertCircle, TrendingDown, Boxes } from "lucide-react";
+import { Package, AlertCircle, TrendingDown, Boxes, Download } from "lucide-react";
+import * as XLSX from "xlsx";
+import { toast } from "sonner";
 
 export default function Stoklar() {
   const kritikHammaddeler = mockHammaddeler.filter(h => h.stok_miktari <= h.kritik_stok_seviyesi);
@@ -13,12 +16,63 @@ export default function Stoklar() {
   const toplamHammaddeStok = mockHammaddeler.reduce((sum, h) => sum + h.stok_miktari, 0);
   const toplamUrunStok = mockUrunler.reduce((sum, u) => sum + u.stok_miktari, 0);
 
+  const exportToExcel = () => {
+    // Hammaddeler için worksheet
+    const hammaddeData = mockHammaddeler.map((h) => {
+      const isDusuk = h.stok_miktari <= h.kritik_stok_seviyesi;
+      const toplamDeger = h.stok_miktari * h.birim_fiyat;
+      return {
+        "Hammadde Adı": h.ad,
+        "Stok Miktarı": h.stok_miktari,
+        "Birim": h.birim,
+        "Kritik Seviye": h.kritik_stok_seviyesi,
+        "Birim Fiyat (₺)": h.birim_fiyat,
+        "Toplam Değer (₺)": toplamDeger,
+        "Tüketim Hızı": `${h.tuketim_hizi} ${h.birim}/gün`,
+        "Durum": isDusuk ? "Kritik" : "Normal",
+      };
+    });
+
+    // Ürünler için worksheet
+    const urunData = mockUrunler.map((u) => {
+      const isDusuk = u.stok_miktari <= u.kritik_stok_seviyesi;
+      const toplamDeger = u.stok_miktari * u.satis_fiyati;
+      return {
+        "Ürün Adı": u.ad,
+        "Ürün Türü": u.tur,
+        "Stok Miktarı": u.stok_miktari,
+        "Kritik Seviye": u.kritik_stok_seviyesi,
+        "Satış Fiyatı (₺)": u.satis_fiyati,
+        "Toplam Değer (₺)": toplamDeger,
+        "Durum": isDusuk ? "Kritik" : "Normal",
+      };
+    });
+
+    const wb = XLSX.utils.book_new();
+    const wsHammadde = XLSX.utils.json_to_sheet(hammaddeData);
+    const wsUrun = XLSX.utils.json_to_sheet(urunData);
+
+    XLSX.utils.book_append_sheet(wb, wsHammadde, "Hammaddeler");
+    XLSX.utils.book_append_sheet(wb, wsUrun, "Ürünler");
+
+    const fileName = `Stok_Raporu_${new Date().toISOString().split("T")[0]}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    
+    toast.success("Stok raporu başarıyla indirildi!");
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Stok Yönetimi</h1>
-          <p className="text-white/70">Hammadde ve ürün stok durumu</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">Stok Yönetimi</h1>
+            <p className="text-white/70">Hammadde ve ürün stok durumu</p>
+          </div>
+          <Button onClick={exportToExcel} className="gap-2">
+            <Download className="w-4 h-4" />
+            Excel Raporu İndir
+          </Button>
         </div>
 
         {/* KPI Cards */}

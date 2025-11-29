@@ -4,8 +4,11 @@ import { ChartPlaceholder } from "@/components/dashboard/ChartPlaceholder";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { mockSiparisler, mockKPIs } from "@/lib/mockData";
-import { ShoppingCart, Clock, CheckCircle, Loader } from "lucide-react";
+import { ShoppingCart, Clock, CheckCircle, Loader, Download } from "lucide-react";
+import * as XLSX from "xlsx";
+import { toast } from "sonner";
 
 export default function Siparisler() {
   const bekleyenSiparisler = mockSiparisler.filter(s => s.durum === "beklemede");
@@ -13,12 +16,40 @@ export default function Siparisler() {
   const tamamlananSiparisler = mockSiparisler.filter(s => s.durum === "tamamlandi");
   const toplamTutar = mockSiparisler.reduce((sum, s) => sum + s.siparis_maliyeti, 0);
 
+  const exportToExcel = () => {
+    const siparisData = mockSiparisler.map((s) => ({
+      "Müşteri": s.musteri,
+      "Ürün": s.urun,
+      "Miktar": s.miktar,
+      "Durum": s.durum,
+      "Kaynak": s.kaynak,
+      "Sipariş Tarihi": s.siparis_tarihi,
+      "Teslim Tarihi": s.teslim_tarihi || "-",
+      "Sipariş Maliyeti (₺)": s.siparis_maliyeti,
+    }));
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(siparisData);
+    XLSX.utils.book_append_sheet(wb, ws, "Siparişler");
+
+    const fileName = `Siparis_Raporu_${new Date().toISOString().split("T")[0]}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    
+    toast.success("Sipariş raporu başarıyla indirildi!");
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Sipariş Yönetimi</h1>
-          <p className="text-white/70">Sipariş takibi ve durum kontrolü</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">Sipariş Yönetimi</h1>
+            <p className="text-white/70">Sipariş takibi ve durum kontrolü</p>
+          </div>
+          <Button onClick={exportToExcel} className="gap-2">
+            <Download className="w-4 h-4" />
+            Excel Raporu İndir
+          </Button>
         </div>
 
         {/* KPI Cards */}
