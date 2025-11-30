@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,15 +12,37 @@ import { useAuth } from "@/hooks/useAuth";
 export function CreateOrderDialog() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [products, setProducts] = useState<Array<{ id: string; ad: string }>>([]);
   const { hasAnyRole } = useAuth();
 
   const [formData, setFormData] = useState({
     musteri: "",
+    urun_id: "",
     miktar: "",
     siparis_maliyeti: "",
     teslim_tarihi: "",
     kaynak: "stok",
   });
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      const { data, error } = await supabase
+        .from("urun")
+        .select("id, ad")
+        .order("ad");
+      
+      if (error) {
+        toast.error("Ürünler yüklenemedi");
+        console.error(error);
+      } else {
+        setProducts(data || []);
+      }
+    };
+
+    if (open) {
+      fetchProducts();
+    }
+  }, [open]);
 
   const canCreateOrder = hasAnyRole(['sirket_sahibi', 'genel_mudur', 'muhasebe']);
 
@@ -30,6 +52,12 @@ export function CreateOrderDialog() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!formData.urun_id) {
+      toast.error("Lütfen bir ürün seçin");
+      return;
+    }
+    
     setLoading(true);
 
     try {
@@ -37,6 +65,7 @@ export function CreateOrderDialog() {
         .from('siparis')
         .insert({
           musteri: formData.musteri,
+          urun_id: formData.urun_id,
           miktar: parseInt(formData.miktar),
           siparis_maliyeti: parseFloat(formData.siparis_maliyeti),
           teslim_tarihi: formData.teslim_tarihi || null,
@@ -50,6 +79,7 @@ export function CreateOrderDialog() {
       setOpen(false);
       setFormData({
         musteri: "",
+        urun_id: "",
         miktar: "",
         siparis_maliyeti: "",
         teslim_tarihi: "",
@@ -86,6 +116,26 @@ export function CreateOrderDialog() {
               onChange={(e) => setFormData({ ...formData, musteri: e.target.value })}
               required
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="urun">Ürün</Label>
+            <Select
+              value={formData.urun_id}
+              onValueChange={(value) => setFormData({ ...formData, urun_id: value })}
+              required
+            >
+              <SelectTrigger className="bg-background">
+                <SelectValue placeholder="Ürün seçin" />
+              </SelectTrigger>
+              <SelectContent className="bg-background z-50">
+                {products.map((product) => (
+                  <SelectItem key={product.id} value={product.id}>
+                    {product.ad}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
