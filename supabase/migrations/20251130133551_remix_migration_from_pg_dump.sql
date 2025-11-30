@@ -35,9 +35,14 @@ SET row_security = off;
 --
 
 CREATE TYPE public.app_role AS ENUM (
-    'mudur',
-    'personel',
-    'operator'
+    'sirket_sahibi',
+    'genel_mudur',
+    'muhasebe',
+    'uretim_sefi',
+    'teknisyen',
+    'servis_personeli',
+    'saha_montaj',
+    'uretim_personeli'
 );
 
 
@@ -58,14 +63,18 @@ BEGIN
     NEW.email
   );
   
-  -- Belirli email adresi otomatik müdür olur
-  IF NEW.email = 'mudur@fabrika.com' THEN
+  -- Şirket sahibi email kontrolü
+  IF NEW.email = 'sahib@fabrika.com' THEN
     INSERT INTO public.user_roles (user_id, role)
-    VALUES (NEW.id, 'mudur');
+    VALUES (NEW.id, 'sirket_sahibi');
+  -- Genel müdür email kontrolü
+  ELSIF NEW.email = 'mudur@fabrika.com' THEN
+    INSERT INTO public.user_roles (user_id, role)
+    VALUES (NEW.id, 'genel_mudur');
   ELSE
-    -- Diğer kullanıcılar varsayılan olarak personel
+    -- Diğer kullanıcılar varsayılan olarak üretim personeli
     INSERT INTO public.user_roles (user_id, role)
-    VALUES (NEW.id, 'personel');
+    VALUES (NEW.id, 'uretim_personeli');
   END IF;
   
   RETURN NEW;
@@ -519,14 +528,6 @@ ALTER TABLE ONLY public.urun_hammadde
 
 
 --
--- Name: user_roles user_roles_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.user_roles
-    ADD CONSTRAINT user_roles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-
---
 -- Name: ariza_kaydi Enable all for ariza_kaydi; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -562,13 +563,6 @@ CREATE POLICY "Enable all for makine" ON public.makine USING (true) WITH CHECK (
 
 
 --
--- Name: siparis Enable all for siparis; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Enable all for siparis" ON public.siparis USING (true) WITH CHECK (true);
-
-
---
 -- Name: uretim Enable all for uretim; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -590,6 +584,13 @@ CREATE POLICY "Enable all for urun_hammadde" ON public.urun_hammadde USING (true
 
 
 --
+-- Name: siparis Herkes siparişleri görüntüleyebilir; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Herkes siparişleri görüntüleyebilir" ON public.siparis FOR SELECT USING (true);
+
+
+--
 -- Name: profiles Kullanıcılar kendi profilini görebilir; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -607,28 +608,28 @@ CREATE POLICY "Kullanıcılar kendi profilini güncelleyebilir" ON public.profil
 -- Name: user_roles Kullanıcılar kendi rollerini görebilir; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY "Kullanıcılar kendi rollerini görebilir" ON public.user_roles FOR SELECT TO authenticated USING ((auth.uid() = user_id));
+CREATE POLICY "Kullanıcılar kendi rollerini görebilir" ON public.user_roles FOR SELECT USING ((auth.uid() = user_id));
 
 
 --
--- Name: user_roles Müdür roller ekleyebilir; Type: POLICY; Schema: public; Owner: -
+-- Name: siparis Yetkili roller sipariş oluşturabilir; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY "Müdür roller ekleyebilir" ON public.user_roles FOR INSERT TO authenticated WITH CHECK (public.has_role(auth.uid(), 'mudur'::public.app_role));
-
-
---
--- Name: user_roles Müdür roller güncelleyebilir; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Müdür roller güncelleyebilir" ON public.user_roles FOR UPDATE TO authenticated USING (public.has_role(auth.uid(), 'mudur'::public.app_role));
+CREATE POLICY "Yetkili roller sipariş oluşturabilir" ON public.siparis FOR INSERT WITH CHECK ((public.has_role(auth.uid(), 'sirket_sahibi'::public.app_role) OR public.has_role(auth.uid(), 'genel_mudur'::public.app_role) OR public.has_role(auth.uid(), 'muhasebe'::public.app_role)));
 
 
 --
--- Name: user_roles Müdür roller silebilir; Type: POLICY; Schema: public; Owner: -
+-- Name: siparis Yöneticiler sipariş güncelleyebilir; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY "Müdür roller silebilir" ON public.user_roles FOR DELETE TO authenticated USING (public.has_role(auth.uid(), 'mudur'::public.app_role));
+CREATE POLICY "Yöneticiler sipariş güncelleyebilir" ON public.siparis FOR UPDATE USING ((public.has_role(auth.uid(), 'sirket_sahibi'::public.app_role) OR public.has_role(auth.uid(), 'genel_mudur'::public.app_role)));
+
+
+--
+-- Name: siparis Yöneticiler sipariş silebilir; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Yöneticiler sipariş silebilir" ON public.siparis FOR DELETE USING ((public.has_role(auth.uid(), 'sirket_sahibi'::public.app_role) OR public.has_role(auth.uid(), 'genel_mudur'::public.app_role)));
 
 
 --
@@ -696,6 +697,27 @@ ALTER TABLE public.urun_hammadde ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: user_roles Şirket sahibi ve genel müdür roller ekleyebilir; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Şirket sahibi ve genel müdür roller ekleyebilir" ON public.user_roles FOR INSERT WITH CHECK ((public.has_role(auth.uid(), 'sirket_sahibi'::public.app_role) OR public.has_role(auth.uid(), 'genel_mudur'::public.app_role)));
+
+
+--
+-- Name: user_roles Şirket sahibi ve genel müdür roller güncelleyebilir; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Şirket sahibi ve genel müdür roller güncelleyebilir" ON public.user_roles FOR UPDATE USING ((public.has_role(auth.uid(), 'sirket_sahibi'::public.app_role) OR public.has_role(auth.uid(), 'genel_mudur'::public.app_role)));
+
+
+--
+-- Name: user_roles Şirket sahibi ve genel müdür roller silebilir; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Şirket sahibi ve genel müdür roller silebilir" ON public.user_roles FOR DELETE USING ((public.has_role(auth.uid(), 'sirket_sahibi'::public.app_role) OR public.has_role(auth.uid(), 'genel_mudur'::public.app_role)));
+
 
 --
 -- PostgreSQL database dump complete
