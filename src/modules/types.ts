@@ -51,6 +51,15 @@ export interface Product {
   productionCost: number;
   sellingPrice: number;
   requiredMaterials: MaterialRequirement[];
+  // Kazan ölçüleri
+  width?: number; // En (cm)
+  length?: number; // Boy (cm)
+  height?: number; // Yükseklik (cm)
+  volume?: number; // Hacim/Kapasite (L veya m³)
+  weight?: number; // Ağırlık (kg)
+  maxPressure?: number; // Maksimum Basınç
+  maxTemperature?: number; // Maksimum Sıcaklık (°C)
+  imageUrl?: string; // Ürün resim URL
 }
 
 export interface MaterialRequirement {
