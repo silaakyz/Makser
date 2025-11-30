@@ -5,6 +5,7 @@ import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { CreateOrderDialog } from "@/components/orders/CreateOrderDialog";
 import { mockSiparisler, mockKPIs } from "@/lib/mockData";
 import { ShoppingCart, Clock, CheckCircle, Loader, Download } from "lucide-react";
 import * as XLSX from "xlsx";
@@ -46,10 +47,13 @@ export default function Siparisler() {
             <h1 className="text-3xl font-bold text-white mb-2">Sipariş Yönetimi</h1>
             <p className="text-white/70">Sipariş takibi ve durum kontrolü</p>
           </div>
-          <Button onClick={exportToExcel} className="gap-2">
-            <Download className="w-4 h-4" />
-            Excel Raporu İndir
-          </Button>
+          <div className="flex gap-2">
+            <CreateOrderDialog />
+            <Button onClick={exportToExcel} className="gap-2" variant="outline">
+              <Download className="w-4 h-4" />
+              Excel Raporu İndir
+            </Button>
+          </div>
         </div>
 
         {/* KPI Cards */}
