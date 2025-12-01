@@ -296,17 +296,16 @@ export default function Uretim() {
     <DashboardLayout>
       <div className="space-y-6">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-white mb-2">Üretim Yönetimi</h1>
-            <p className="text-white/70">Anlık üretim durumu ve performans metrikleri</p>
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2">Üretim Yönetimi</h1>
+          <p className="text-white/70">Anlık üretim durumu ve performans metrikleri</p>
           </div>
           {isManager && (
-            <Button
-              variant="outline"
-              className="gap-2 self-start"
-              onClick={handleGenerateDemoData}
-              disabled={generatingData}
-            >
+          <Button
+            className="gap-2 self-start bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={handleGenerateDemoData}
+            disabled={generatingData}
+          >
               <RotateCcw className="w-4 h-4" />
               {generatingData ? "Veriler oluşturuluyor..." : "Demo üretim verisi oluştur"}
             </Button>
@@ -384,34 +383,34 @@ export default function Uretim() {
                       uretim.hedef_adet > 0
                         ? Math.round((uretim.uretilen_adet / uretim.hedef_adet) * 100)
                         : 0;
-                    return (
-                      <TableRow key={uretim.id}>
+                  return (
+                    <TableRow key={uretim.id}>
                         <TableCell className="font-medium">
                           {uretim.makine?.ad || "Bilinmiyor"}
                         </TableCell>
                         <TableCell>{uretim.urun?.ad || "Bilinmiyor"}</TableCell>
-                        <TableCell>{uretim.baslangic_zamani}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-primary transition-all"
-                                style={{ width: `${oran}%` }}
-                              />
-                            </div>
-                            <span className="text-sm text-muted-foreground">{oran}%</span>
+                      <TableCell>{uretim.baslangic_zamani}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-primary transition-all" 
+                              style={{ width: `${oran}%` }}
+                            />
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          {uretim.uretilen_adet} / {uretim.hedef_adet}
-                        </TableCell>
+                          <span className="text-sm text-muted-foreground">{oran}%</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {uretim.uretilen_adet} / {uretim.hedef_adet}
+                      </TableCell>
                         <TableCell>-</TableCell>
-                        <TableCell>
-                          <StatusBadge status={uretim.durum} />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                      <TableCell>
+                        <StatusBadge status={uretim.durum} />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>
@@ -534,71 +533,71 @@ export default function Uretim() {
                 Henüz kayıtlı kazan ürünü bulunmamaktadır.
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {urunler.map((urun) => (
                   <div
                     key={urun.id}
                     className="border border-border rounded-lg overflow-hidden hover:border-primary/50 transition-all flex flex-col"
                   >
-                    {urun.resim_url && (
-                      <div className="relative h-48 bg-muted">
-                        <img
-                          src={urun.resim_url}
-                          alt={urun.ad}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    )}
+                  {urun.resim_url && (
+                    <div className="relative h-48 bg-muted">
+                      <img 
+                        src={urun.resim_url} 
+                        alt={urun.ad}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
                     <div className="p-4 space-y-3 flex-1">
-                      <div>
-                        <h3 className="text-lg font-semibold text-foreground">{urun.ad}</h3>
-                        <p className="text-sm text-muted-foreground">{urun.tur}</p>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <h3 className="text-lg font-semibold text-foreground">{urun.ad}</h3>
+                      <p className="text-sm text-muted-foreground">{urun.tur}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
                         {urun.en !== null && (
-                          <div>
-                            <span className="text-muted-foreground">En:</span>
-                            <span className="ml-1 text-foreground font-medium">{urun.en} cm</span>
-                          </div>
-                        )}
+                        <div>
+                          <span className="text-muted-foreground">En:</span>
+                          <span className="ml-1 text-foreground font-medium">{urun.en} cm</span>
+                        </div>
+                      )}
                         {urun.boy !== null && (
-                          <div>
-                            <span className="text-muted-foreground">Boy:</span>
-                            <span className="ml-1 text-foreground font-medium">{urun.boy} cm</span>
-                          </div>
-                        )}
+                        <div>
+                          <span className="text-muted-foreground">Boy:</span>
+                          <span className="ml-1 text-foreground font-medium">{urun.boy} cm</span>
+                        </div>
+                      )}
                         {urun.yukseklik !== null && (
-                          <div>
-                            <span className="text-muted-foreground">Yükseklik:</span>
-                            <span className="ml-1 text-foreground font-medium">{urun.yukseklik} cm</span>
-                          </div>
-                        )}
+                        <div>
+                          <span className="text-muted-foreground">Yükseklik:</span>
+                          <span className="ml-1 text-foreground font-medium">{urun.yukseklik} cm</span>
+                        </div>
+                      )}
                         {urun.hacim !== null && (
-                          <div>
-                            <span className="text-muted-foreground">Hacim:</span>
-                            <span className="ml-1 text-foreground font-medium">{urun.hacim} L</span>
-                          </div>
-                        )}
+                        <div>
+                          <span className="text-muted-foreground">Hacim:</span>
+                          <span className="ml-1 text-foreground font-medium">{urun.hacim} L</span>
+                        </div>
+                      )}
                         {urun.agirlik !== null && (
-                          <div>
-                            <span className="text-muted-foreground">Ağırlık:</span>
-                            <span className="ml-1 text-foreground font-medium">{urun.agirlik} kg</span>
-                          </div>
-                        )}
+                        <div>
+                          <span className="text-muted-foreground">Ağırlık:</span>
+                          <span className="ml-1 text-foreground font-medium">{urun.agirlik} kg</span>
+                        </div>
+                      )}
                         {urun.max_basinc !== null && (
-                          <div>
-                            <span className="text-muted-foreground">Max Basınç:</span>
-                            <span className="ml-1 text-foreground font-medium">{urun.max_basinc} bar</span>
-                          </div>
-                        )}
+                        <div>
+                          <span className="text-muted-foreground">Max Basınç:</span>
+                          <span className="ml-1 text-foreground font-medium">{urun.max_basinc} bar</span>
+                        </div>
+                      )}
                         {urun.max_sicaklik !== null && (
-                          <div>
-                            <span className="text-muted-foreground">Max Sıcaklık:</span>
-                            <span className="ml-1 text-foreground font-medium">{urun.max_sicaklik}°C</span>
-                          </div>
-                        )}
-                        <div className="col-span-2">
-                          <span className="text-muted-foreground">Stok:</span>
+                        <div>
+                          <span className="text-muted-foreground">Max Sıcaklık:</span>
+                          <span className="ml-1 text-foreground font-medium">{urun.max_sicaklik}°C</span>
+                        </div>
+                      )}
+                      <div className="col-span-2">
+                        <span className="text-muted-foreground">Stok:</span>
                           <span className="ml-1 text-foreground font-medium">
                             {urun.stok_miktari.toLocaleString("tr-TR")} adet
                           </span>
@@ -624,22 +623,22 @@ export default function Uretim() {
                             ) : (
                               <span>Teknik doküman yüklenmemiş</span>
                             )}
-                          </div>
+                      </div>
                           {isManager && (
                             <Button
-                              variant="outline"
                               size="sm"
+                              className="bg-primary text-primary-foreground hover:bg-primary/90"
                               onClick={() => openDocDialog(urun)}
                             >
                               {urun.teknik_dokuman_url ? "Belgeyi Güncelle" : "Belge Yükle"}
                             </Button>
                           )}
-                        </div>
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
+            </div>
             )}
           </CardContent>
         </Card>
@@ -666,10 +665,19 @@ export default function Uretim() {
             </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDocDialogOpen(false)} disabled={uploadingDoc}>
+            <Button
+              variant="outline"
+              onClick={() => setDocDialogOpen(false)}
+              disabled={uploadingDoc}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 border-none"
+            >
               İptal
             </Button>
-            <Button onClick={handleDocumentUpload} disabled={uploadingDoc}>
+            <Button
+              onClick={handleDocumentUpload}
+              disabled={uploadingDoc}
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
               {uploadingDoc ? "Yükleniyor..." : "Kaydet"}
             </Button>
           </DialogFooter>
