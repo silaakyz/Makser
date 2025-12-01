@@ -141,6 +141,94 @@ export function CreateOrderDialog() {
     return null;
   }
 
+  const createOrderLocally = async () => {
+    const miktar = parseInt(formData.miktar);
+    const siparisMaliyeti = parseFloat(formData.siparis_maliyeti);
+
+    const { data: recipe, error: recipeError } = await supabase
+      .from("urun_hammadde")
+      .select("hammadde_id, miktar")
+      .eq("urun_id", formData.urun_id);
+
+    if (recipeError) throw recipeError;
+
+    for (const row of recipe || []) {
+      const required = (Number(row.miktar) || 0) * miktar;
+      const { data: material, error: materialError } = await supabase
+        .from("hammadde")
+        .select("stok_miktari, ad")
+        .eq("id", row.hammadde_id)
+        .maybeSingle();
+
+      if (materialError) throw materialError;
+      const available = material?.stok_miktari || 0;
+      if (available < required) {
+        throw new Error(
+          `${material?.ad || "Hammadde"} stoğu yetersiz. Gerekli: ${required}, mevcut: ${available}`
+        );
+      }
+    }
+
+    const { data: newOrder, error: orderError } = await supabase
+      .from("siparis")
+      .insert({
+        musteri: formData.musteri,
+        urun_id: formData.urun_id,
+        miktar,
+        siparis_maliyeti: siparisMaliyeti,
+        teslim_tarihi: formData.teslim_tarihi || null,
+        kaynak: formData.kaynak,
+        durum: "beklemede",
+      })
+      .select("id")
+      .single();
+
+    if (orderError) throw orderError;
+
+    for (const row of recipe || []) {
+      const usage = (Number(row.miktar) || 0) * miktar;
+      const { data: material, error: materialError } = await supabase
+        .from("hammadde")
+        .select("stok_miktari")
+        .eq("id", row.hammadde_id)
+        .maybeSingle();
+
+      if (materialError) throw materialError;
+
+      const newStock = Math.max(0, (material?.stok_miktari || 0) - usage);
+      const { error: updateMaterialError } = await supabase
+        .from("hammadde")
+        .update({ stok_miktari: newStock })
+        .eq("id", row.hammadde_id);
+
+      if (updateMaterialError) throw updateMaterialError;
+    }
+
+    if (formData.kaynak === "uretim") {
+      const { data: product, error: productError } = await supabase
+        .from("urun")
+        .select("stok_miktari")
+        .eq("id", formData.urun_id)
+        .maybeSingle();
+
+      if (productError) throw productError;
+
+      const newProductStock = Math.max(0, (product?.stok_miktari || 0) - miktar);
+      const { error: updateProductError } = await supabase
+        .from("urun")
+        .update({ stok_miktari: newProductStock })
+        .eq("id", formData.urun_id);
+
+      if (updateProductError) throw updateProductError;
+    }
+
+    return {
+      success: true,
+      message: "Sipariş başarıyla oluşturuldu.",
+      order: newOrder,
+    };
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -157,8 +245,7 @@ export function CreateOrderDialog() {
     setLoading(true);
 
     try {
-      // Use edge function to process order and deduct materials
-      const { data, error } = await supabase.functions.invoke('process-order', {
+      const invokeResult = await supabase.functions.invoke('process-order', {
         body: {
           musteri: formData.musteri,
           urun_id: formData.urun_id,
@@ -169,10 +256,18 @@ export function CreateOrderDialog() {
         }
       });
 
-      if (error) throw error;
+      let response = invokeResult.data;
 
-      if (data.success) {
-        toast.success(data.message || "Sipariş başarıyla oluşturuldu!");
+      if (invokeResult.error) {
+        if (invokeResult.error.message?.includes("Not Found")) {
+          response = await createOrderLocally();
+        } else {
+          throw invokeResult.error;
+        }
+      }
+
+      if (response?.success) {
+        toast.success(response.message || "Sipariş başarıyla oluşturuldu!");
         setOpen(false);
         setFormData({
           musteri: "",
