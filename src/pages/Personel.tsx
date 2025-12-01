@@ -11,9 +11,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ROLE_NAMES } from "@/config/rolePermissions";
 import type { AppRole } from "@/config/rolePermissions";
-import { Users } from "lucide-react";
+import { Users, Edit } from "lucide-react";
 
 interface PersonelData {
   id: string;
@@ -26,6 +29,10 @@ interface PersonelData {
 export default function Personel() {
   const [personelList, setPersonelList] = useState<PersonelData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedPersonel, setSelectedPersonel] = useState<PersonelData | null>(null);
+  const [newRole, setNewRole] = useState<AppRole | null>(null);
+  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     fetchPersonel();
@@ -70,6 +77,47 @@ export default function Personel() {
     }
   };
 
+  const handleEditClick = (personel: PersonelData) => {
+    setSelectedPersonel(personel);
+    setNewRole(personel.role);
+    setEditDialogOpen(true);
+  };
+
+  const handleUpdateRole = async () => {
+    if (!selectedPersonel || !newRole) return;
+
+    try {
+      setUpdating(true);
+
+      // Delete old role
+      const { error: deleteError } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', selectedPersonel.id);
+
+      if (deleteError) throw deleteError;
+
+      // Insert new role
+      const { error: insertError } = await supabase
+        .from('user_roles')
+        .insert({
+          user_id: selectedPersonel.id,
+          role: newRole
+        });
+
+      if (insertError) throw insertError;
+
+      toast.success('Kullanıcı yetkisi güncellendi');
+      setEditDialogOpen(false);
+      fetchPersonel();
+    } catch (error: any) {
+      console.error('Yetki güncellenirken hata:', error);
+      toast.error('Yetki güncellenemedi');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -99,6 +147,7 @@ export default function Personel() {
                     <TableHead>Soyad</TableHead>
                     <TableHead>E-posta</TableHead>
                     <TableHead>Görev</TableHead>
+                    <TableHead>İşlemler</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -112,11 +161,21 @@ export default function Personel() {
                           {ROLE_NAMES[personel.role]}
                         </span>
                       </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditClick(personel)}
+                        >
+                          <Edit className="w-4 h-4 mr-2" />
+                          Düzenle
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                   {personelList.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                         Henüz kayıtlı personel bulunmamaktadır
                       </TableCell>
                     </TableRow>
@@ -127,6 +186,44 @@ export default function Personel() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Kullanıcı Yetkisini Düzenle</DialogTitle>
+            <DialogDescription>
+              {selectedPersonel?.ad} {selectedPersonel?.soyad} kullanıcısının yetkisini değiştirin
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Yetki/Görev</label>
+              <Select value={newRole || undefined} onValueChange={(value) => setNewRole(value as AppRole)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Yetki seçin" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(ROLE_NAMES) as AppRole[]).map((role) => (
+                    <SelectItem key={role} value={role}>
+                      {ROLE_NAMES[role]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={updating}>
+              İptal
+            </Button>
+            <Button onClick={handleUpdateRole} disabled={updating || !newRole}>
+              {updating ? "Güncelleniyor..." : "Güncelle"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
