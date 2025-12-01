@@ -2,3 +2,7 @@ project_id = "owxracnbytioxhirltzp"
 
 [functions.migrate-database]
 verify_jwt = false
+
+[functions.calculate-order-details]
+
+[functions.process-order]
