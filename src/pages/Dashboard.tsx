@@ -385,7 +385,9 @@ export default function Dashboard() {
                   <span className="text-sm text-muted-foreground">Günlük Maliyet</span>
                   <span className="text-lg font-bold text-card-foreground">
                     {financialSummary
-                      ? `₺${(financialSummary.dailyCost / 1000).toFixed(1)}K`
+                      ? `₺${financialSummary.dailyCost.toLocaleString("tr-TR", {
+                          maximumFractionDigits: 0,
+                        })}`
                       : "—"}
                   </span>
                 </div>
@@ -393,7 +395,9 @@ export default function Dashboard() {
                   <span className="text-sm text-muted-foreground">Haftalık Maliyet</span>
                   <span className="text-lg font-bold text-card-foreground">
                     {financialSummary
-                      ? `₺${(financialSummary.weeklyCost / 1000).toFixed(1)}K`
+                      ? `₺${financialSummary.weeklyCost.toLocaleString("tr-TR", {
+                          maximumFractionDigits: 0,
+                        })}`
                       : "—"}
                   </span>
                 </div>
@@ -401,7 +405,9 @@ export default function Dashboard() {
                   <span className="text-sm text-success">Toplam Kâr</span>
                   <span className="text-lg font-bold text-success">
                     {financialSummary
-                      ? `₺${(financialSummary.profit / 1000).toFixed(1)}K`
+                      ? `₺${financialSummary.profit.toLocaleString("tr-TR", {
+                          maximumFractionDigits: 0,
+                        })}`
                       : "—"}
                   </span>
                 </div>

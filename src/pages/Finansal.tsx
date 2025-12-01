@@ -153,28 +153,36 @@ export default function Finansal() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard
             title="Günlük Maliyet"
-            value={`₺${(daily.at(-1)?.maliyet || 0) / 1000 >= 1 ? ((daily.at(-1)?.maliyet || 0) / 1000).toFixed(1) + "K" : (daily.at(-1)?.maliyet || 0).toFixed(0)}`}
+            value={`₺${(daily.at(-1)?.maliyet || 0).toLocaleString("tr-TR", {
+              maximumFractionDigits: 0,
+            })}`}
             icon={DollarSign}
             variant="info"
             subtitle="Bugünkü toplam sipariş maliyeti"
           />
           <KpiCard
             title="7 Günlük Maliyet"
-            value={`₺${(toplamMaliyet / 1000).toFixed(1)}K`}
+            value={`₺${toplamMaliyet.toLocaleString("tr-TR", {
+              maximumFractionDigits: 0,
+            })}`}
             icon={TrendingDown}
             variant="warning"
             subtitle="Son 7 gün"
           />
           <KpiCard
             title="Toplam Kâr"
-            value={`₺${(toplamKar / 1000).toFixed(1)}K`}
+            value={`₺${toplamKar.toLocaleString("tr-TR", {
+              maximumFractionDigits: 0,
+            })}`}
             icon={TrendingUp}
             variant="success"
             subtitle={`%${karMarji} kâr marjı`}
           />
           <KpiCard
             title="Bakım + Arıza"
-            value={`₺${((toplamBakim + toplamAriza) / 1000).toFixed(1)}K`}
+            value={`₺${(toplamBakim + toplamAriza).toLocaleString("tr-TR", {
+              maximumFractionDigits: 0,
+            })}`}
             icon={Wrench}
             variant="destructive"
             subtitle="Bakım ve arıza giderleri"

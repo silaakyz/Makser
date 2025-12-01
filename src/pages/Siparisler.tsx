@@ -266,7 +266,9 @@ export default function Siparisler() {
           />
           <KpiCard
             title="Toplam Tutar"
-            value={`₺${(toplamTutar / 1000).toFixed(0)}K`}
+            value={`₺${toplamTutar.toLocaleString("tr-TR", {
+              maximumFractionDigits: 0,
+            })}`}
             icon={ShoppingCart}
             variant="default"
             subtitle="Aylık sipariş değeri"
