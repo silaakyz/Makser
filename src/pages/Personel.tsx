@@ -42,54 +42,113 @@ export default function Personel() {
     try {
       setLoading(true);
       
-      // Personel tablosundan veri çek
+      // Personel tablosundan veri çek - ad, soyad, unvan alanlarını seç (mail opsiyonel)
+      // @ts-ignore - personel tablosu type tanımlarında yok olabilir
       const { data: personelData, error: personelError } = await supabase
-        .from('personel')
-        .select('*');
+        .from('personel' as any)
+        .select('ad, soyad, unvan, mail')
+        .not('ad', 'is', null)
+        .not('soyad', 'is', null);
 
       if (personelError) {
         console.error('Personel tablosu hatası:', personelError);
-        toast.error('Personel listesi yüklenemedi: ' + personelError.message);
+        
+        // Eğer tablo bulunamazsa, kullanıcıya bilgi ver
+        if (personelError.message.includes('could not find the table') || 
+            personelError.message.includes('schema cache') ||
+            personelError.message.includes('relation') ||
+            personelError.code === 'PGRST116') {
+          toast.error('Personel tablosu bulunamadı. Lütfen Supabase Dashboard\'dan SQL Editor\'de aşağıdaki SQL\'i çalıştırın.', {
+            duration: 10000
+          });
+          console.error('Personel tablosu mevcut değil. Lütfen aşağıdaki SQL\'i Supabase Dashboard > SQL Editor\'de çalıştırın:');
+          console.log(`
+CREATE TABLE IF NOT EXISTS public.personel (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    personel_id uuid DEFAULT gen_random_uuid(),
+    ad text NOT NULL,
+    soyad text NOT NULL,
+    unvan text,
+    mail text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+ALTER TABLE public.personel ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Personel tablosu herkese açık okuma"
+ON public.personel
+FOR SELECT
+USING (true);
+
+INSERT INTO public.personel (ad, soyad, unvan, mail) VALUES
+('Salih', 'Şener', 'Şirket Sahibi', 'salihsener@yonetici.com'),
+('Yağız', 'Şener', 'Genel Müdür', 'yagizsener@yonetici.com'),
+('Muhammed Tahir', 'Tüzün', 'Muhasebe', 'mtahirtuzun@muhasebe.com'),
+('Murat', 'Karabıyık', 'Teknisyen', 'muratkarabiyik@teknisyen.com'),
+('Ekrem', 'Ercan', 'Saha Montaj', NULL),
+('Mustafa', 'Erten', 'Servis personeli', NULL),
+('Arda', 'Ünal', 'Saha Montaj', NULL),
+('İbrahim', 'Şengün', 'Saha Montaj', NULL),
+('Yusuf', 'Hokkabaz', 'Saha Montaj', NULL),
+('Zafer', 'Sezer', 'Üretim Şefi', 'zafersezer@uretimsefi.com'),
+('Ahmet', 'Erli', 'Üretim Personeli', NULL)
+ON CONFLICT DO NOTHING;
+          `);
+        } else {
+          toast.error('Personel listesi yüklenemedi: ' + personelError.message);
+        }
         setPersonelList([]);
         return;
       }
 
       if (!personelData || personelData.length === 0) {
+        console.log('Personel tablosu boş - veriler eklenmemiş olabilir');
+        toast.info('Personel tablosu oluşturuldu ancak veri bulunamadı. Lütfen verileri Supabase Dashboard\'dan ekleyin.');
         setPersonelList([]);
         return;
       }
 
       // Personel verilerini dönüştür
-      const combinedData: PersonelData[] = personelData.map((personel: any) => {
+      const combinedData: PersonelData[] = personelData.map((personel: any, index: number) => {
         // Unvan'a göre role eşleştirme
         let role: AppRole = 'uretim_personeli';
-        const unvan = personel.unvan?.toLowerCase() || '';
+        const unvan = (personel.unvan || '').toLowerCase().trim();
         
-        if (unvan.includes('sahib') || unvan.includes('sahip')) {
+        if (unvan.includes('şirket sahibi') || unvan.includes('sahip')) {
           role = 'sirket_sahibi';
-        } else if (unvan.includes('müdür') || unvan.includes('mudur')) {
+        } else if (unvan.includes('genel müdür') || unvan.includes('müdür') || unvan.includes('mudur')) {
           role = 'genel_mudur';
         } else if (unvan.includes('muhasebe')) {
           role = 'muhasebe';
-        } else if (unvan.includes('üretim') || unvan.includes('uretim')) {
-          role = unvan.includes('şef') || unvan.includes('sefi') ? 'uretim_sefi' : 'uretim_personeli';
+        } else if (unvan.includes('üretim şefi') || unvan.includes('uretim sefi') || unvan.includes('üretim şef')) {
+          role = 'uretim_sefi';
+        } else if (unvan.includes('üretim personeli') || unvan.includes('uretim personeli')) {
+          role = 'uretim_personeli';
         } else if (unvan.includes('teknisyen')) {
           role = 'teknisyen';
         } else if (unvan.includes('servis')) {
           role = 'servis_personeli';
-        } else if (unvan.includes('montaj')) {
+        } else if (unvan.includes('saha montaj') || unvan.includes('montaj')) {
           role = 'saha_montaj';
         }
 
+        // Email opsiyonel - NULL olabilir
+        let email = personel.mail;
+        if (email === 'NULL' || email === 'EMPTY' || email === '') {
+          email = null;
+        }
+
         return {
-          id: personel.personel_id || personel.id || crypto.randomUUID(),
-          ad: personel.ad || null,
-          soyad: personel.soyad || null,
-          email: personel.mail || personel.email || null,
+          id: `personel-${index}-${personel.ad}-${personel.soyad}`,
+          ad: personel.ad,
+          soyad: personel.soyad,
+          email: email || null,
           role: role
         };
       });
 
+      console.log('Personel verileri yüklendi:', combinedData.length, 'kayıt');
       setPersonelList(combinedData);
     } catch (error: any) {
       console.error('Personel listesi yüklenirken hata:', error);
