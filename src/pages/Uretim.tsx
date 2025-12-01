@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { KpiCard } from "@/components/dashboard/KpiCard";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Factory, TrendingUp, Clock, Target, FileDown } from "lucide-react";
+import { Factory, TrendingUp, Clock, Target, FileDown, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -72,69 +72,70 @@ export default function Uretim() {
   const [selectedProduct, setSelectedProduct] = useState<UrunRow | null>(null);
   const [docFile, setDocFile] = useState<File | null>(null);
   const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [generatingData, setGeneratingData] = useState(false);
 
   const isManager = roles.some(role =>
     ["sirket_sahibi", "genel_mudur", "uretim_sefi", "muhasebe"].includes(role)
   );
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const today = new Date();
-        const start = new Date();
-        start.setDate(today.getDate() - 6);
+  const fetchProductionData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const today = new Date();
+      const start = new Date();
+      start.setDate(today.getDate() - 6);
 
-        const [{ data: uData, error: uError }, { data: mData, error: mError }] =
-          await Promise.all([
-            supabase
-              .from("uretim")
-              .select(
-                `id, hedef_adet, uretilen_adet, baslangic_zamani, bitis_zamani, durum, makine_id, urun_id,
-                 urun:urun_id (ad),
-                 makine:makine_id (ad)`
-              )
-              .gte("baslangic_zamani", start.toISOString()),
-            supabase.from("makine").select("id, ad, uretim_kapasitesi"),
-          ]);
+      const [{ data: uData, error: uError }, { data: mData, error: mError }] =
+        await Promise.all([
+          supabase
+            .from("uretim")
+            .select(
+              `id, hedef_adet, uretilen_adet, baslangic_zamani, bitis_zamani, durum, makine_id, urun_id,
+               urun:urun_id (ad),
+               makine:makine_id (ad)`
+            )
+            .gte("baslangic_zamani", start.toISOString()),
+          supabase.from("makine").select("id, ad, uretim_kapasitesi"),
+        ]);
 
-        if (uError) throw uError;
-        if (mError) throw mError;
+      if (uError) throw uError;
+      if (mError) throw mError;
 
-        setUretimler((uData as UretimRow[]) || []);
-        setMakineler((mData as MakineRow[]) || []);
-      } catch (error: any) {
-        console.error("Üretim verileri yüklenirken hata:", error);
-        toast.error("Üretim verileri yüklenemedi");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+      setUretimler((uData as UretimRow[]) || []);
+      setMakineler((mData as MakineRow[]) || []);
+    } catch (error: any) {
+      console.error("Üretim verileri yüklenirken hata:", error);
+      toast.error("Üretim verileri yüklenemedi");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        setProductsLoading(true);
-        const { data, error } = await supabase
-          .from("urun")
-          .select("*")
-          .order("ad");
+    fetchProductionData();
+  }, [fetchProductionData]);
 
-        if (error) throw error;
-        setUrunler((data as UrunRow[]) || []);
-      } catch (error: any) {
-        console.error("Ürünler yüklenirken hata:", error);
-        toast.error("Kazan ürünleri yüklenemedi");
-      } finally {
-        setProductsLoading(false);
-      }
-    };
+  const fetchProducts = useCallback(async () => {
+    try {
+      setProductsLoading(true);
+      const { data, error } = await supabase
+        .from("urun")
+        .select("*")
+        .order("ad");
 
+      if (error) throw error;
+      setUrunler((data as UrunRow[]) || []);
+    } catch (error: any) {
+      console.error("Ürünler yüklenirken hata:", error);
+      toast.error("Kazan ürünleri yüklenemedi");
+    } finally {
+      setProductsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [fetchProducts]);
 
   const openDocDialog = (urun: UrunRow) => {
     setSelectedProduct(urun);
@@ -175,9 +176,7 @@ export default function Uretim() {
 
       if (updateError) throw updateError;
 
-      setUrunler(prev =>
-        prev.map(u => (u.id === selectedProduct.id ? { ...u, teknik_dokuman_url: publicUrl || null } : u))
-      );
+      await fetchProducts();
 
       toast.success("Teknik doküman yüklendi");
       setDocDialogOpen(false);
@@ -190,6 +189,28 @@ export default function Uretim() {
       );
     } finally {
       setUploadingDoc(false);
+    }
+  };
+
+  const handleGenerateDemoData = async () => {
+    try {
+      setGeneratingData(true);
+      const { data, error } = await supabase.functions.invoke("generate-production-samples", {
+        body: { days: 14, maxPerDay: 3 },
+      });
+
+      if (error) throw error;
+      if (!data?.success) {
+        throw new Error(data?.error || "Üretim verileri oluşturulamadı");
+      }
+
+      toast.success(`${data.inserted} adet üretim kaydı oluşturuldu`);
+      await fetchProductionData();
+    } catch (error: any) {
+      console.error("Demo verileri oluşturulamadı:", error);
+      toast.error(error.message || "Üretim verileri oluşturulamadı");
+    } finally {
+      setGeneratingData(false);
     }
   };
 
@@ -274,9 +295,22 @@ export default function Uretim() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Üretim Yönetimi</h1>
-          <p className="text-white/70">Anlık üretim durumu ve performans metrikleri</p>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">Üretim Yönetimi</h1>
+            <p className="text-white/70">Anlık üretim durumu ve performans metrikleri</p>
+          </div>
+          {isManager && (
+            <Button
+              variant="outline"
+              className="gap-2 self-start"
+              onClick={handleGenerateDemoData}
+              disabled={generatingData}
+            >
+              <RotateCcw className="w-4 h-4" />
+              {generatingData ? "Veriler oluşturuluyor..." : "Demo üretim verisi oluştur"}
+            </Button>
+          )}
         </div>
 
         {/* KPI Cards */}
