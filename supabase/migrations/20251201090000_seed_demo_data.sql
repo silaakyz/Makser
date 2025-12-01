@@ -44,13 +44,103 @@ BEGIN
 
   -- Ürün tablosu boşsa kazan ürünlerini ekle
   IF NOT EXISTS (SELECT 1 FROM public.urun LIMIT 1) THEN
-    INSERT INTO public.urun (ad, tur, stok_miktari, satis_fiyati, kritik_stok_seviyesi)
+    INSERT INTO public.urun (
+      ad,
+      tur,
+      stok_miktari,
+      satis_fiyati,
+      kritik_stok_seviyesi,
+      en,
+      boy,
+      yukseklik,
+      hacim,
+      agirlik,
+      max_basinc,
+      max_sicaklik,
+      resim_url,
+      teknik_dokuman_url
+    )
     VALUES
-      ('Kazan K-100', 'Sanayi Kazanı', 12, 45000, 5),
-      ('Kazan K-200', 'Buhar Kazanı', 8, 78000, 3),
-      ('Kazan K-300', 'Kombi Kazanı', 25, 25000, 10),
-      ('Kazan K-400', 'Endüstriyel Kazan', 6, 125000, 2),
-      ('Kazan K-500', 'Ticari Kazan', 18, 35000, 8);
+      (
+        'Kazan K-100',
+        'Sanayi Kazanı',
+        12,
+        45000,
+        5,
+        120,
+        180,
+        200,
+        500,
+        850,
+        10,
+        180,
+        'https://images.unsplash.com/photo-1581092795360-fd1ca04f0952?w=800&auto=format&fit=crop',
+        NULL
+      ),
+      (
+        'Kazan K-200',
+        'Buhar Kazanı',
+        8,
+        78000,
+        3,
+        150,
+        220,
+        250,
+        1000,
+        1450,
+        15,
+        220,
+        'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?w=800&auto=format&fit=crop',
+        NULL
+      ),
+      (
+        'Kazan K-300',
+        'Kombi Kazanı',
+        25,
+        25000,
+        10,
+        80,
+        120,
+        150,
+        200,
+        380,
+        8,
+        160,
+        'https://images.unsplash.com/photo-1581092583537-20d51b4b4f1b?w=800&auto=format&fit=crop',
+        NULL
+      ),
+      (
+        'Kazan K-400',
+        'Endüstriyel Kazan',
+        6,
+        125000,
+        2,
+        200,
+        300,
+        320,
+        2000,
+        2850,
+        20,
+        250,
+        'https://images.unsplash.com/photo-1581092921461-eab62e97a780?w=800&auto=format&fit=crop',
+        NULL
+      ),
+      (
+        'Kazan K-500',
+        'Ticari Kazan',
+        18,
+        35000,
+        8,
+        100,
+        150,
+        180,
+        350,
+        520,
+        12,
+        190,
+        'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?w=800&auto=format&fit=crop',
+        NULL
+      );
   END IF;
 
   -- Sipariş tablosu boşsa örnek siparişler ekle

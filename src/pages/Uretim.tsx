@@ -4,10 +4,13 @@ import { KpiCard } from "@/components/dashboard/KpiCard";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { mockUrunler } from "@/lib/mockData";
-import { Factory, TrendingUp, Clock, Target } from "lucide-react";
+import { Factory, TrendingUp, Clock, Target, FileDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { useAuth } from "@/hooks/useAuth";
 import {
   ResponsiveContainer,
   BarChart,
@@ -40,10 +43,39 @@ interface MakineRow {
   uretim_kapasitesi: number;
 }
 
+type UrunRow = {
+  id: string;
+  ad: string;
+  tur: string;
+  stok_miktari: number;
+  satis_fiyati: number;
+  kritik_stok_seviyesi: number | null;
+  en: number | null;
+  boy: number | null;
+  yukseklik: number | null;
+  hacim: number | null;
+  agirlik: number | null;
+  max_basinc: number | null;
+  max_sicaklik: number | null;
+  resim_url: string | null;
+  teknik_dokuman_url: string | null;
+};
+
 export default function Uretim() {
+  const { roles } = useAuth();
   const [uretimler, setUretimler] = useState<UretimRow[]>([]);
   const [makineler, setMakineler] = useState<MakineRow[]>([]);
+  const [urunler, setUrunler] = useState<UrunRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [docDialogOpen, setDocDialogOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<UrunRow | null>(null);
+  const [docFile, setDocFile] = useState<File | null>(null);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+
+  const isManager = roles.some(role =>
+    ["sirket_sahibi", "genel_mudur", "uretim_sefi", "muhasebe"].includes(role)
+  );
 
   useEffect(() => {
     const fetchData = async () => {
@@ -81,6 +113,85 @@ export default function Uretim() {
 
     fetchData();
   }, []);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setProductsLoading(true);
+        const { data, error } = await supabase
+          .from("urun")
+          .select("*")
+          .order("ad");
+
+        if (error) throw error;
+        setUrunler((data as UrunRow[]) || []);
+      } catch (error: any) {
+        console.error("Ürünler yüklenirken hata:", error);
+        toast.error("Kazan ürünleri yüklenemedi");
+      } finally {
+        setProductsLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
+  const openDocDialog = (urun: UrunRow) => {
+    setSelectedProduct(urun);
+    setDocFile(null);
+    setDocDialogOpen(true);
+  };
+
+  const handleDocumentUpload = async () => {
+    if (!selectedProduct) {
+      toast.error("Lütfen bir ürün seçin");
+      return;
+    }
+
+    if (!docFile) {
+      toast.error("Lütfen bir dosya seçin");
+      return;
+    }
+
+    try {
+      setUploadingDoc(true);
+      const bucket = "urun-dokumanlari";
+      const safeName = docFile.name.replace(/\s+/g, "-").toLowerCase();
+      const filePath = `${selectedProduct.id}/${Date.now()}-${safeName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(filePath, docFile, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(filePath);
+      const publicUrl = publicData?.publicUrl;
+
+      const { error: updateError } = await supabase
+        .from("urun")
+        .update({ teknik_dokuman_url: publicUrl })
+        .eq("id", selectedProduct.id);
+
+      if (updateError) throw updateError;
+
+      setUrunler(prev =>
+        prev.map(u => (u.id === selectedProduct.id ? { ...u, teknik_dokuman_url: publicUrl || null } : u))
+      );
+
+      toast.success("Teknik doküman yüklendi");
+      setDocDialogOpen(false);
+    } catch (error: any) {
+      console.error("Doküman yüklenirken hata:", error);
+      toast.error(
+        error?.message?.includes("No storage bucket") 
+          ? "Önce Supabase Storage'da 'urun-dokumanlari' isminde bir bucket oluşturmalısınız."
+          : "Doküman yüklenemedi"
+      );
+    } finally {
+      setUploadingDoc(false);
+    }
+  };
 
   const aktifUretimler = useMemo(
     () => uretimler.filter((u) => u.durum === "devam_ediyor"),
@@ -372,90 +483,164 @@ export default function Uretim() {
           </CardContent>
         </Card>
 
-        {/* Üretilen Kazan Ölçüleri ve Resimleri */}
+        {/* Kazan Ürünleri ve Teknik Dokümanlar */}
         <Card className="bg-card border-border hover:border-primary/30 transition-all">
           <CardHeader>
-            <CardTitle className="text-xl font-semibold text-card-foreground">Kazan Ürünleri - Teknik Özellikler</CardTitle>
+            <CardTitle className="text-xl font-semibold text-card-foreground">
+              Kazan Ürünleri - Teknik Özellikler
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {mockUrunler.map((urun) => (
-                <div key={urun.id} className="border border-border rounded-lg overflow-hidden hover:border-primary/50 transition-all">
-                  {urun.resim_url && (
-                    <div className="relative h-48 bg-muted">
-                      <img 
-                        src={urun.resim_url} 
-                        alt={urun.ad}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  )}
-                  <div className="p-4 space-y-3">
-                    <div>
-                      <h3 className="text-lg font-semibold text-foreground">{urun.ad}</h3>
-                      <p className="text-sm text-muted-foreground">{urun.tur}</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      {urun.en && (
-                        <div>
-                          <span className="text-muted-foreground">En:</span>
-                          <span className="ml-1 text-foreground font-medium">{urun.en} cm</span>
-                        </div>
-                      )}
-                      {urun.boy && (
-                        <div>
-                          <span className="text-muted-foreground">Boy:</span>
-                          <span className="ml-1 text-foreground font-medium">{urun.boy} cm</span>
-                        </div>
-                      )}
-                      {urun.yukseklik && (
-                        <div>
-                          <span className="text-muted-foreground">Yükseklik:</span>
-                          <span className="ml-1 text-foreground font-medium">{urun.yukseklik} cm</span>
-                        </div>
-                      )}
-                      {urun.hacim && (
-                        <div>
-                          <span className="text-muted-foreground">Hacim:</span>
-                          <span className="ml-1 text-foreground font-medium">{urun.hacim} L</span>
-                        </div>
-                      )}
-                      {urun.agirlik && (
-                        <div>
-                          <span className="text-muted-foreground">Ağırlık:</span>
-                          <span className="ml-1 text-foreground font-medium">{urun.agirlik} kg</span>
-                        </div>
-                      )}
-                      {urun.max_basinc && (
-                        <div>
-                          <span className="text-muted-foreground">Max Basınç:</span>
-                          <span className="ml-1 text-foreground font-medium">{urun.max_basinc} bar</span>
-                        </div>
-                      )}
-                      {urun.max_sicaklik && (
-                        <div>
-                          <span className="text-muted-foreground">Max Sıcaklık:</span>
-                          <span className="ml-1 text-foreground font-medium">{urun.max_sicaklik}°C</span>
-                        </div>
-                      )}
-                      <div className="col-span-2">
-                        <span className="text-muted-foreground">Stok:</span>
-                        <span className="ml-1 text-foreground font-medium">{urun.stok_miktari} adet</span>
+            {productsLoading ? (
+              <div className="flex items-center justify-center py-10 text-muted-foreground">
+                Ürün verileri yükleniyor...
+              </div>
+            ) : urunler.length === 0 ? (
+              <div className="text-center text-muted-foreground py-10">
+                Henüz kayıtlı kazan ürünü bulunmamaktadır.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {urunler.map((urun) => (
+                  <div
+                    key={urun.id}
+                    className="border border-border rounded-lg overflow-hidden hover:border-primary/50 transition-all flex flex-col"
+                  >
+                    {urun.resim_url && (
+                      <div className="relative h-48 bg-muted">
+                        <img
+                          src={urun.resim_url}
+                          alt={urun.ad}
+                          className="w-full h-full object-cover"
+                        />
                       </div>
-                    </div>
-                    <div className="pt-2 border-t border-border">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Satış Fiyatı:</span>
-                        <span className="text-lg font-bold text-primary">{urun.satis_fiyati.toLocaleString('tr-TR')} ₺</span>
+                    )}
+                    <div className="p-4 space-y-3 flex-1">
+                      <div>
+                        <h3 className="text-lg font-semibold text-foreground">{urun.ad}</h3>
+                        <p className="text-sm text-muted-foreground">{urun.tur}</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        {urun.en !== null && (
+                          <div>
+                            <span className="text-muted-foreground">En:</span>
+                            <span className="ml-1 text-foreground font-medium">{urun.en} cm</span>
+                          </div>
+                        )}
+                        {urun.boy !== null && (
+                          <div>
+                            <span className="text-muted-foreground">Boy:</span>
+                            <span className="ml-1 text-foreground font-medium">{urun.boy} cm</span>
+                          </div>
+                        )}
+                        {urun.yukseklik !== null && (
+                          <div>
+                            <span className="text-muted-foreground">Yükseklik:</span>
+                            <span className="ml-1 text-foreground font-medium">{urun.yukseklik} cm</span>
+                          </div>
+                        )}
+                        {urun.hacim !== null && (
+                          <div>
+                            <span className="text-muted-foreground">Hacim:</span>
+                            <span className="ml-1 text-foreground font-medium">{urun.hacim} L</span>
+                          </div>
+                        )}
+                        {urun.agirlik !== null && (
+                          <div>
+                            <span className="text-muted-foreground">Ağırlık:</span>
+                            <span className="ml-1 text-foreground font-medium">{urun.agirlik} kg</span>
+                          </div>
+                        )}
+                        {urun.max_basinc !== null && (
+                          <div>
+                            <span className="text-muted-foreground">Max Basınç:</span>
+                            <span className="ml-1 text-foreground font-medium">{urun.max_basinc} bar</span>
+                          </div>
+                        )}
+                        {urun.max_sicaklik !== null && (
+                          <div>
+                            <span className="text-muted-foreground">Max Sıcaklık:</span>
+                            <span className="ml-1 text-foreground font-medium">{urun.max_sicaklik}°C</span>
+                          </div>
+                        )}
+                        <div className="col-span-2">
+                          <span className="text-muted-foreground">Stok:</span>
+                          <span className="ml-1 text-foreground font-medium">
+                            {urun.stok_miktari.toLocaleString("tr-TR")} adet
+                          </span>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="text-muted-foreground">Satış Fiyatı:</span>
+                          <span className="ml-1 text-primary font-semibold">
+                            ₺{urun.satis_fiyati.toLocaleString("tr-TR")}
+                          </span>
+                        </div>
+                        <div className="col-span-2 flex items-center justify-between pt-2 border-t border-border">
+                          <div className="text-xs text-muted-foreground flex items-center gap-2">
+                            <FileDown className="w-4 h-4" />
+                            {urun.teknik_dokuman_url ? (
+                              <a
+                                href={urun.teknik_dokuman_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-primary underline"
+                              >
+                                Teknik dokümanı indir
+                              </a>
+                            ) : (
+                              <span>Teknik doküman yüklenmemiş</span>
+                            )}
+                          </div>
+                          {isManager && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openDocDialog(urun)}
+                            >
+                              {urun.teknik_dokuman_url ? "Belgeyi Güncelle" : "Belge Yükle"}
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={docDialogOpen} onOpenChange={setDocDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Teknik Doküman Yükle</DialogTitle>
+            <DialogDescription>
+              {selectedProduct
+                ? `${selectedProduct.ad} ürünü için teknik belge yükleyin.`
+                : "Bir ürün seçin."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              type="file"
+              accept=".pdf,.doc,.docx,.xlsx,.png,.jpg,.jpeg"
+              onChange={(e) => setDocFile(e.target.files?.[0] || null)}
+            />
+            <p className="text-xs text-muted-foreground">
+              PDF veya ofis dokümanı yükleyebilirsiniz. Dosya ismi otomatik olarak düzenlenir.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDocDialogOpen(false)} disabled={uploadingDoc}>
+              İptal
+            </Button>
+            <Button onClick={handleDocumentUpload} disabled={uploadingDoc}>
+              {uploadingDoc ? "Yükleniyor..." : "Kaydet"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

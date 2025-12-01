@@ -365,6 +365,7 @@ export type Database = {
           resim_url: string | null
           satis_fiyati: number
           stok_miktari: number
+          teknik_dokuman_url: string | null
           tur: string
           updated_at: string | null
           yukseklik: number | null
@@ -383,6 +384,7 @@ export type Database = {
           resim_url?: string | null
           satis_fiyati: number
           stok_miktari?: number
+          teknik_dokuman_url?: string | null
           tur: string
           updated_at?: string | null
           yukseklik?: number | null
@@ -401,6 +403,7 @@ export type Database = {
           resim_url?: string | null
           satis_fiyati?: number
           stok_miktari?: number
+          teknik_dokuman_url?: string | null
           tur?: string
           updated_at?: string | null
           yukseklik?: number | null
