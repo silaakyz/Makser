@@ -1,7 +1,6 @@
 -- Personel tablosunu oluştur
 CREATE TABLE IF NOT EXISTS public.personel (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    personel_id uuid DEFAULT gen_random_uuid(),
     ad text NOT NULL,
     soyad text NOT NULL,
     unvan text,
@@ -38,5 +37,41 @@ CREATE POLICY "Personel tablosu herkese açık okuma"
 ON public.personel
 FOR SELECT
 USING (true);
+
+-- Yöneticilerin personel ekleyebilmesi için policy
+CREATE POLICY "Yöneticiler personel ekleyebilir"
+ON public.personel
+FOR INSERT
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.user_roles ur
+    WHERE ur.user_id = auth.uid()
+    AND ur.role IN ('sirket_sahibi', 'genel_mudur')
+  )
+);
+
+-- Yöneticilerin personel silebilmesi için policy
+CREATE POLICY "Yöneticiler personel silebilir"
+ON public.personel
+FOR DELETE
+USING (
+  EXISTS (
+    SELECT 1 FROM public.user_roles ur
+    WHERE ur.user_id = auth.uid()
+    AND ur.role IN ('sirket_sahibi', 'genel_mudur')
+  )
+);
+
+-- Yöneticilerin personel güncelleyebilmesi için policy
+CREATE POLICY "Yöneticiler personel güncelleyebilir"
+ON public.personel
+FOR UPDATE
+USING (
+  EXISTS (
+    SELECT 1 FROM public.user_roles ur
+    WHERE ur.user_id = auth.uid()
+    AND ur.role IN ('sirket_sahibi', 'genel_mudur')
+  )
+);
 
 

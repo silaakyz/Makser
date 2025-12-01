@@ -16,23 +16,43 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ROLE_NAMES } from "@/config/rolePermissions";
 import type { AppRole } from "@/config/rolePermissions";
-import { Users, Edit } from "lucide-react";
+import { Users, Edit, Plus, Trash2 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface PersonelData {
   id: string;
   ad: string | null;
   soyad: string | null;
   email: string | null;
+  unvan?: string | null;
   role: AppRole;
 }
 
 export default function Personel() {
+  const { roles } = useAuth();
   const [personelList, setPersonelList] = useState<PersonelData[]>([]);
   const [loading, setLoading] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedPersonel, setSelectedPersonel] = useState<PersonelData | null>(null);
   const [newRole, setNewRole] = useState<AppRole | null>(null);
   const [updating, setUpdating] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  
+  // Yeni personel form alanları
+  const [newPersonel, setNewPersonel] = useState({
+    ad: '',
+    soyad: '',
+    unvan: '',
+    mail: ''
+  });
+
+  // Yönetici kontrolü
+  const isAdmin = roles.includes('sirket_sahibi') || roles.includes('genel_mudur');
 
   useEffect(() => {
     fetchPersonel();
@@ -140,10 +160,11 @@ ON CONFLICT DO NOTHING;
         }
 
         return {
-          id: `personel-${index}-${personel.ad}-${personel.soyad}`,
+          id: personel.id || `personel-${index}-${personel.ad}-${personel.soyad}`,
           ad: personel.ad,
           soyad: personel.soyad,
           email: email || null,
+          unvan: personel.unvan || null,
           role: role
         };
       });
@@ -171,32 +192,82 @@ ON CONFLICT DO NOTHING;
     try {
       setUpdating(true);
 
-      // Delete old role
-      const { error: deleteError } = await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', selectedPersonel.id);
+      // Personel tablosundaki unvan'ı güncelle
+      // @ts-ignore
+      const { error: updateError } = await supabase
+        .from('personel' as any)
+        .update({ unvan: ROLE_NAMES[newRole] })
+        .eq('id', selectedPersonel.id);
 
-      if (deleteError) throw deleteError;
+      if (updateError) throw updateError;
 
-      // Insert new role
+      toast.success('Personel görevi güncellendi');
+      setEditDialogOpen(false);
+      fetchPersonel();
+    } catch (error: any) {
+      console.error('Görev güncellenirken hata:', error);
+      toast.error('Görev güncellenemedi');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleAddPersonel = async () => {
+    if (!newPersonel.ad || !newPersonel.soyad) {
+      toast.error('Ad ve soyad alanları zorunludur');
+      return;
+    }
+
+    try {
+      setAdding(true);
+
+      // @ts-ignore
       const { error: insertError } = await supabase
-        .from('user_roles')
+        .from('personel' as any)
         .insert({
-          user_id: selectedPersonel.id,
-          role: newRole
+          ad: newPersonel.ad,
+          soyad: newPersonel.soyad,
+          unvan: newPersonel.unvan || null,
+          mail: newPersonel.mail || null
         });
 
       if (insertError) throw insertError;
 
-      toast.success('Kullanıcı yetkisi güncellendi');
-      setEditDialogOpen(false);
+      toast.success('Personel eklendi');
+      setAddDialogOpen(false);
+      setNewPersonel({ ad: '', soyad: '', unvan: '', mail: '' });
       fetchPersonel();
     } catch (error: any) {
-      console.error('Yetki güncellenirken hata:', error);
-      toast.error('Yetki güncellenemedi');
+      console.error('Personel eklenirken hata:', error);
+      toast.error('Personel eklenemedi: ' + (error.message || 'Bilinmeyen hata'));
     } finally {
-      setUpdating(false);
+      setAdding(false);
+    }
+  };
+
+  const handleDeletePersonel = async () => {
+    if (!selectedPersonel) return;
+
+    try {
+      setDeleting(true);
+
+      // @ts-ignore
+      const { error: deleteError } = await supabase
+        .from('personel' as any)
+        .delete()
+        .eq('id', selectedPersonel.id);
+
+      if (deleteError) throw deleteError;
+
+      toast.success('Personel silindi');
+      setDeleteDialogOpen(false);
+      setSelectedPersonel(null);
+      fetchPersonel();
+    } catch (error: any) {
+      console.error('Personel silinirken hata:', error);
+      toast.error('Personel silinemedi: ' + (error.message || 'Bilinmeyen hata'));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -218,6 +289,15 @@ ON CONFLICT DO NOTHING;
                 <CardTitle>Personel Listesi</CardTitle>
                 <CardDescription>Toplam {personelList.length} personel</CardDescription>
               </div>
+              {isAdmin && (
+                <Button 
+                  onClick={() => setAddDialogOpen(true)}
+                  className="gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Personel Ekle
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent>
@@ -231,9 +311,10 @@ ON CONFLICT DO NOTHING;
                   <TableRow>
                     <TableHead>Ad</TableHead>
                     <TableHead>Soyad</TableHead>
+                    <TableHead>Ünvan</TableHead>
                     <TableHead>E-posta</TableHead>
                     <TableHead>Görev</TableHead>
-                    <TableHead>İşlemler</TableHead>
+                    {isAdmin && <TableHead>İşlemler</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -241,27 +322,47 @@ ON CONFLICT DO NOTHING;
                     <TableRow key={personel.id}>
                       <TableCell className="font-medium">{personel.ad || '-'}</TableCell>
                       <TableCell>{personel.soyad || '-'}</TableCell>
+                      <TableCell>{personel.unvan || '-'}</TableCell>
                       <TableCell>{personel.email || '-'}</TableCell>
                       <TableCell>
                         <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
                           {ROLE_NAMES[personel.role]}
                         </span>
                       </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEditClick(personel)}
-                        >
-                          <Edit className="w-4 h-4 mr-2" />
-                          Düzenle
-                        </Button>
-                      </TableCell>
+                      {isAdmin && (
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedPersonel(personel);
+                                setNewRole(personel.role);
+                                setEditDialogOpen(true);
+                              }}
+                            >
+                              <Edit className="w-4 h-4 mr-2" />
+                              Düzenle
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedPersonel(personel);
+                                setDeleteDialogOpen(true);
+                              }}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                   {personelList.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={isAdmin ? 6 : 5} className="text-center text-muted-foreground py-8">
                         Henüz kayıtlı personel bulunmamaktadır
                       </TableCell>
                     </TableRow>
@@ -273,21 +374,88 @@ ON CONFLICT DO NOTHING;
         </Card>
       </div>
 
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+      {/* Personel Ekleme Dialog */}
+      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Kullanıcı Yetkisini Düzenle</DialogTitle>
+            <DialogTitle>Yeni Personel Ekle</DialogTitle>
             <DialogDescription>
-              {selectedPersonel?.ad} {selectedPersonel?.soyad} kullanıcısının yetkisini değiştirin
+              Personel bilgilerini girin
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Yetki/Görev</label>
+              <Label htmlFor="ad">Ad *</Label>
+              <Input
+                id="ad"
+                value={newPersonel.ad}
+                onChange={(e) => setNewPersonel({ ...newPersonel, ad: e.target.value })}
+                placeholder="Ad"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="soyad">Soyad *</Label>
+              <Input
+                id="soyad"
+                value={newPersonel.soyad}
+                onChange={(e) => setNewPersonel({ ...newPersonel, soyad: e.target.value })}
+                placeholder="Soyad"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="unvan">Ünvan</Label>
+              <Input
+                id="unvan"
+                value={newPersonel.unvan}
+                onChange={(e) => setNewPersonel({ ...newPersonel, unvan: e.target.value })}
+                placeholder="Örn: Üretim Personeli, Teknisyen"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="mail">E-posta</Label>
+              <Input
+                id="mail"
+                type="email"
+                value={newPersonel.mail}
+                onChange={(e) => setNewPersonel({ ...newPersonel, mail: e.target.value })}
+                placeholder="ornek@fabrika.com"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setAddDialogOpen(false);
+              setNewPersonel({ ad: '', soyad: '', unvan: '', mail: '' });
+            }} disabled={adding}>
+              İptal
+            </Button>
+            <Button onClick={handleAddPersonel} disabled={adding || !newPersonel.ad || !newPersonel.soyad}>
+              {adding ? "Ekleniyor..." : "Ekle"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Personel Düzenleme Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Personel Görevini Düzenle</DialogTitle>
+            <DialogDescription>
+              {selectedPersonel?.ad} {selectedPersonel?.soyad} personelinin görevini değiştirin
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Görev/Ünvan</label>
               <Select value={newRole || undefined} onValueChange={(value) => setNewRole(value as AppRole)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Yetki seçin" />
+                  <SelectValue placeholder="Görev seçin" />
                 </SelectTrigger>
                 <SelectContent>
                   {(Object.keys(ROLE_NAMES) as AppRole[]).map((role) => (
@@ -306,6 +474,30 @@ ON CONFLICT DO NOTHING;
             </Button>
             <Button onClick={handleUpdateRole} disabled={updating || !newRole}>
               {updating ? "Güncelleniyor..." : "Güncelle"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Personel Silme Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Personel Sil</DialogTitle>
+            <DialogDescription>
+              {selectedPersonel?.ad} {selectedPersonel?.soyad} personelini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setDeleteDialogOpen(false);
+              setSelectedPersonel(null);
+            }} disabled={deleting}>
+              İptal
+            </Button>
+            <Button variant="destructive" onClick={handleDeletePersonel} disabled={deleting}>
+              {deleting ? "Siliniyor..." : "Sil"}
             </Button>
           </DialogFooter>
         </DialogContent>
