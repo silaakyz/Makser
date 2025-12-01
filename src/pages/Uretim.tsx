@@ -1,14 +1,164 @@
+import { useEffect, useMemo, useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { KpiCard } from "@/components/dashboard/KpiCard";
-import { ChartPlaceholder } from "@/components/dashboard/ChartPlaceholder";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { mockUretimler, mockKPIs, mockUretimTrendi, mockMakineKullanimi, mockUrunler } from "@/lib/mockData";
+import { mockUrunler } from "@/lib/mockData";
 import { Factory, TrendingUp, Clock, Target } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from "recharts";
+
+interface UretimRow {
+  id: string;
+  hedef_adet: number;
+  uretilen_adet: number;
+  baslangic_zamani: string;
+  bitis_zamani: string | null;
+  durum: string;
+  makine_id: string | null;
+  urun_id: string | null;
+  urun?: { ad: string } | null;
+  makine?: { ad: string } | null;
+}
+
+interface MakineRow {
+  id: string;
+  ad: string;
+  uretim_kapasitesi: number;
+}
 
 export default function Uretim() {
-  const aktifUretimler = mockUretimler.filter(u => u.durum === "devam_ediyor");
+  const [uretimler, setUretimler] = useState<UretimRow[]>([]);
+  const [makineler, setMakineler] = useState<MakineRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const today = new Date();
+        const start = new Date();
+        start.setDate(today.getDate() - 6);
+
+        const [{ data: uData, error: uError }, { data: mData, error: mError }] =
+          await Promise.all([
+            supabase
+              .from("uretim")
+              .select(
+                `id, hedef_adet, uretilen_adet, baslangic_zamani, bitis_zamani, durum, makine_id, urun_id,
+                 urun:urun_id (ad),
+                 makine:makine_id (ad)`
+              )
+              .gte("baslangic_zamani", start.toISOString()),
+            supabase.from("makine").select("id, ad, uretim_kapasitesi"),
+          ]);
+
+        if (uError) throw uError;
+        if (mError) throw mError;
+
+        setUretimler((uData as UretimRow[]) || []);
+        setMakineler((mData as MakineRow[]) || []);
+      } catch (error: any) {
+        console.error("Üretim verileri yüklenirken hata:", error);
+        toast.error("Üretim verileri yüklenemedi");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const aktifUretimler = useMemo(
+    () => uretimler.filter((u) => u.durum === "devam_ediyor"),
+    [uretimler]
+  );
+
+  const toplamHedef = useMemo(
+    () => uretimler.reduce((sum, u) => sum + (u.hedef_adet || 0), 0),
+    [uretimler]
+  );
+  const toplamUretilen = useMemo(
+    () => uretimler.reduce((sum, u) => sum + (u.uretilen_adet || 0), 0),
+    [uretimler]
+  );
+
+  const uretimVerimlilik = toplamHedef > 0 ? Math.round((toplamUretilen / toplamHedef) * 100) : 0;
+  const oeeSkoru = uretimVerimlilik; // Basit yaklaşım: şimdilik aynı
+
+  const ortalamaSure = useMemo(() => {
+    const completed = uretimler.filter(
+      (u) => u.bitis_zamani && !Number.isNaN(new Date(u.bitis_zamani).getTime())
+    );
+    if (!completed.length) return 0;
+    const totalHours = completed.reduce((sum, u) => {
+      const start = new Date(u.baslangic_zamani);
+      const end = new Date(u.bitis_zamani as string);
+      return sum + Math.max(0, (end.getTime() - start.getTime()) / 36e5);
+    }, 0);
+    return totalHours / completed.length;
+  }, [uretimler]);
+
+  const weeklyTrend = useMemo(() => {
+    const today = new Date();
+    const byDay: Record<string, { tarih: string; adet: number }> = {};
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(today.getDate() - i);
+      const key = d.toISOString().split("T")[0];
+      byDay[key] = { tarih: key.slice(5), adet: 0 };
+    }
+
+    uretimler.forEach((u) => {
+      const d = new Date(u.baslangic_zamani);
+      if (Number.isNaN(d.getTime())) return;
+      const key = d.toISOString().split("T")[0];
+      if (!byDay[key]) return;
+      const qty = u.uretilen_adet || u.hedef_adet || 0;
+      byDay[key].adet += qty;
+    });
+
+    return Object.values(byDay);
+  }, [uretimler]);
+
+  const machineUsage = useMemo(() => {
+    if (!makineler.length) return [];
+
+    const producedByMachine: Record<string, number> = {};
+
+    uretimler.forEach((u) => {
+      if (!u.makine_id) return;
+      const qty = u.uretilen_adet || u.hedef_adet || 0;
+      producedByMachine[u.makine_id] = (producedByMachine[u.makine_id] || 0) + qty;
+    });
+
+    const hoursPerMachine = 8 * 7; // Son 7 gün, günde 8 saat varsayımı
+
+    return makineler.map((m) => {
+      const produced = producedByMachine[m.id] || 0;
+      const theoretical = m.uretim_kapasitesi > 0 ? m.uretim_kapasitesi * hoursPerMachine : 0;
+      const usage = theoretical > 0 ? Math.min(100, (produced / theoretical) * 100) : 0;
+
+      return {
+        makine: m.ad,
+        kullanim: Number(usage.toFixed(1)),
+      };
+    });
+  }, [makineler, uretimler]);
 
   return (
     <DashboardLayout>
@@ -22,14 +172,14 @@ export default function Uretim() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard
             title="OEE Skoru"
-            value={`${mockKPIs.oee}%`}
+            value={`${oeeSkoru}%`}
             icon={Target}
             variant="info"
             subtitle="Overall Equipment Effectiveness"
           />
           <KpiCard
             title="Üretim Verimliliği"
-            value={`${mockKPIs.uretimVerimlilik}%`}
+            value={`${uretimVerimlilik}%`}
             icon={TrendingUp}
             variant="success"
             subtitle="Hedef: 85%"
@@ -39,11 +189,11 @@ export default function Uretim() {
             value={aktifUretimler.length}
             icon={Factory}
             variant="default"
-            subtitle={`${mockUretimler.length} toplam üretim`}
+            subtitle={`${uretimler.length} toplam üretim`}
           />
           <KpiCard
             title="Ortalama Süre"
-            value="4.2 saat"
+            value={`${ortalamaSure.toFixed(1)} saat`}
             icon={Clock}
             variant="warning"
             subtitle="Üretim başına"
@@ -69,34 +219,54 @@ export default function Uretim() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {aktifUretimler.map((uretim) => {
-                  const oran = Math.round((uretim.uretilen_adet / uretim.hedef_adet) * 100);
-                  return (
-                    <TableRow key={uretim.id}>
-                      <TableCell className="font-medium">{uretim.makine}</TableCell>
-                      <TableCell>{uretim.urun}</TableCell>
-                      <TableCell>{uretim.baslangic_zamani}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                            <div 
-                              className="h-full bg-primary transition-all" 
-                              style={{ width: `${oran}%` }}
-                            />
+                {loading && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
+                      Üretim verileri yükleniyor...
+                    </TableCell>
+                  </TableRow>
+                )}
+                {!loading && aktifUretimler.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
+                      Aktif üretim bulunmamaktadır
+                    </TableCell>
+                  </TableRow>
+                )}
+                {!loading &&
+                  aktifUretimler.map((uretim) => {
+                    const oran =
+                      uretim.hedef_adet > 0
+                        ? Math.round((uretim.uretilen_adet / uretim.hedef_adet) * 100)
+                        : 0;
+                    return (
+                      <TableRow key={uretim.id}>
+                        <TableCell className="font-medium">
+                          {uretim.makine?.ad || "Bilinmiyor"}
+                        </TableCell>
+                        <TableCell>{uretim.urun?.ad || "Bilinmiyor"}</TableCell>
+                        <TableCell>{uretim.baslangic_zamani}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-primary transition-all"
+                                style={{ width: `${oran}%` }}
+                              />
+                            </div>
+                            <span className="text-sm text-muted-foreground">{oran}%</span>
                           </div>
-                          <span className="text-sm text-muted-foreground">{oran}%</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {uretim.uretilen_adet} / {uretim.hedef_adet}
-                      </TableCell>
-                      <TableCell>{uretim.calisan_personel}</TableCell>
-                      <TableCell>
-                        <StatusBadge status={uretim.durum} />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                        </TableCell>
+                        <TableCell>
+                          {uretim.uretilen_adet} / {uretim.hedef_adet}
+                        </TableCell>
+                        <TableCell>-</TableCell>
+                        <TableCell>
+                          <StatusBadge status={uretim.durum} />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
               </TableBody>
             </Table>
           </CardContent>
@@ -104,16 +274,64 @@ export default function Uretim() {
 
         {/* Grafikler */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ChartPlaceholder 
-            title="Haftalık Üretim Trendi" 
-            type="bar"
-            height="h-80"
-          />
-          <ChartPlaceholder 
-            title="Makine Kapasite Kullanımı" 
-            type="line"
-            height="h-80"
-          />
+          <Card className="bg-card border-border hover:border-primary/30 transition-all">
+            <CardHeader>
+              <CardTitle className="text-xl font-semibold text-card-foreground">
+                Haftalık Üretim Trendi
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="h-80">
+              {weeklyTrend.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+                  Üretim verisi bulunamadı
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={weeklyTrend}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <XAxis dataKey="tarih" stroke="#9ca3af" />
+                    <YAxis stroke="#9ca3af" />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="adet" name="Üretilen Adet" fill="#3b82f6" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card border-border hover:border-primary/30 transition-all">
+            <CardHeader>
+              <CardTitle className="text-xl font-semibold text-card-foreground">
+                Makine Kapasite Kullanımı (Son 7 Gün)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="h-80">
+              {machineUsage.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+                  Makine verisi bulunamadı
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={machineUsage}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <XAxis dataKey="makine" stroke="#9ca3af" />
+                    <YAxis unit="%" stroke="#9ca3af" />
+                    <Tooltip />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="kullanim"
+                      name="Kapasite Kullanımı"
+                      stroke="#22c55e"
+                      strokeWidth={2}
+                      dot={{ r: 4 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* OEE Bileşenleri */}

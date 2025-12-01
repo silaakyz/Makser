@@ -77,23 +77,45 @@ Deno.serve(async (req) => {
       throw prodError;
     }
 
-    // 5. Calculate average production capacity
+    // 5. Calculate per-machine workload and estimates
+    const machineEstimates = (machines || []).map((m) => {
+      const machineWork =
+        currentProduction
+          ?.filter((p) => p.makine_id === m.id)
+          .reduce((sum, p) => sum + (p.hedef_adet - p.uretilen_adet), 0) || 0;
+
+      const hoursForCurrent = m.uretim_kapasitesi > 0 ? machineWork / m.uretim_kapasitesi : 0;
+      const hoursForNew = m.uretim_kapasitesi > 0 ? miktar / m.uretim_kapasitesi : 0;
+      const totalHours = hoursForCurrent + hoursForNew;
+
+      const finishDate = new Date();
+      finishDate.setHours(finishDate.getHours() + totalHours);
+
+      return {
+        id: m.id,
+        ad: m.ad,
+        durum: m.durum,
+        currentWorkload: machineWork,
+        totalHours,
+        estimatedFinish: finishDate.toISOString(),
+      };
+    });
+
+    // 6. Calculate overall average capacity & workload (for summary)
     const totalCapacity = machines?.reduce((sum, m) => sum + m.uretim_kapasitesi, 0) || 0;
     const avgCapacity = machines && machines.length > 0 ? totalCapacity / machines.length : 50;
 
-    // 6. Calculate current workload
-    const currentWorkload = currentProduction?.reduce((sum, p) => 
-      sum + (p.hedef_adet - p.uretilen_adet), 0) || 0;
+    const currentWorkload = currentProduction?.reduce(
+      (sum, p) => sum + (p.hedef_adet - p.uretilen_adet),
+      0,
+    ) || 0;
 
-    // 7. Estimate production time in hours
     const hoursForCurrentWork = avgCapacity > 0 ? currentWorkload / avgCapacity : 0;
     const hoursForNewOrder = avgCapacity > 0 ? miktar / avgCapacity : 0;
     const totalHours = hoursForCurrentWork + hoursForNewOrder;
 
-    // 8. Convert to days (assuming 8-hour workday)
     const estimatedDays = Math.ceil(totalHours / 8);
 
-    // 9. Calculate delivery date
     const deliveryDate = new Date();
     deliveryDate.setDate(deliveryDate.getDate() + estimatedDays);
 
@@ -111,8 +133,9 @@ Deno.serve(async (req) => {
           avgCapacity,
           currentWorkload,
           totalHours,
-          availableMachines: machines?.length || 0
-        }
+          availableMachines: machines?.length || 0,
+        },
+        machineEstimates,
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

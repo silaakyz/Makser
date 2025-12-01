@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { KpiCard } from "@/components/dashboard/KpiCard";
-import { ChartPlaceholder } from "@/components/dashboard/ChartPlaceholder";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -17,6 +16,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  Legend,
+} from "recharts";
 
 interface MakineData {
   id: string;
@@ -33,11 +44,14 @@ export default function Makine() {
   const [makineler, setMakineler] = useState<MakineData[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [dailyWork, setDailyWork] = useState<Array<{ tarih: string; saat: number }>>([]);
+  const [statusUsage, setStatusUsage] = useState<Array<{ durum: string; oran: number }>>([]);
 
   const isAdmin = roles.includes('sirket_sahibi') || roles.includes('genel_mudur');
 
   useEffect(() => {
     fetchMakineler();
+    fetchDailyWork();
   }, []);
 
   const fetchMakineler = async () => {
@@ -82,6 +96,73 @@ export default function Makine() {
   const aktifMakineler = makineler.filter(m => m.durum === "aktif").length;
   const arizaliMakineler = makineler.filter(m => m.durum === "arızalı").length;
   const bakimdaMakineler = makineler.filter(m => m.durum === "bakımda").length;
+
+  useEffect(() => {
+    if (!makineler.length) {
+      setStatusUsage([]);
+      return;
+    }
+
+    const toplam = makineler.length || 1;
+    const counts = makineler.reduce(
+      (acc, m) => {
+        acc[m.durum] = (acc[m.durum] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
+
+    const data = [
+      { durum: "Aktif", oran: ((counts["aktif"] || 0) / toplam) * 100 },
+      { durum: "Boşta", oran: ((counts["boşta"] || 0) / toplam) * 100 },
+      { durum: "Arızalı", oran: ((counts["arızalı"] || 0) / toplam) * 100 },
+      { durum: "Bakımda", oran: ((counts["bakımda"] || 0) / toplam) * 100 },
+    ];
+
+    setStatusUsage(data);
+  }, [makineler]);
+
+  const fetchDailyWork = async () => {
+    try {
+      const end = new Date();
+      const start = new Date();
+      start.setDate(end.getDate() - 6);
+
+      const { data, error } = await supabase
+        .from("uretim")
+        .select("baslangic_zamani, bitis_zamani")
+        .gte("baslangic_zamani", start.toISOString());
+
+      if (error) throw error;
+
+      const byDay: Record<string, number> = {};
+
+      (data || []).forEach((row: any) => {
+        const bas = row.baslangic_zamani ? new Date(row.baslangic_zamani) : null;
+        const bit = row.bitis_zamani ? new Date(row.bitis_zamani) : null;
+        if (!bas) return;
+        const endTime = bit || new Date();
+        const hours = Math.max(0, (endTime.getTime() - bas.getTime()) / 36e5);
+        const key = bas.toISOString().split("T")[0];
+        byDay[key] = (byDay[key] || 0) + hours;
+      });
+
+      const result: Array<{ tarih: string; saat: number }> = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(end.getDate() - i);
+        const key = d.toISOString().split("T")[0];
+        result.push({
+          tarih: key.slice(5), // MM-DD
+          saat: Number((byDay[key] || 0).toFixed(1)),
+        });
+      }
+
+      setDailyWork(result);
+    } catch (error: any) {
+      console.error("Günlük çalışma süresi hesaplanırken hata:", error);
+    }
+  };
 
   const exportToExcel = () => {
     // Makineler için worksheet
@@ -362,16 +443,64 @@ export default function Makine() {
 
         {/* Grafikler */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ChartPlaceholder 
-            title="Günlük Çalışma Süresi" 
-            type="bar"
-            height="h-80"
-          />
-          <ChartPlaceholder 
-            title="Makine Kullanım Oranı" 
-            type="line"
-            height="h-80"
-          />
+          <Card className="bg-card border-border hover:border-primary/30 transition-all">
+            <CardHeader>
+              <CardTitle className="text-xl font-semibold text-card-foreground">
+                Günlük Çalışma Süresi (Son 7 Gün)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="h-80">
+              {dailyWork.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+                  Veri bulunamadı
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={dailyWork}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <XAxis dataKey="tarih" stroke="#9ca3af" />
+                    <YAxis stroke="#9ca3af" />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="saat" name="Çalışma Saati" fill="#3b82f6" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card border-border hover:border-primary/30 transition-all">
+            <CardHeader>
+              <CardTitle className="text-xl font-semibold text-card-foreground">
+                Makine Kullanım Oranı
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="h-80">
+              {statusUsage.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+                  Veri bulunamadı
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={statusUsage}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <XAxis dataKey="durum" stroke="#9ca3af" />
+                    <YAxis unit="%" stroke="#9ca3af" />
+                    <Tooltip />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="oran"
+                      name="Kullanım Oranı"
+                      stroke="#10b981"
+                      strokeWidth={2}
+                      dot={{ r: 4 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </DashboardLayout>

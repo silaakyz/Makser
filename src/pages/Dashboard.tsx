@@ -93,6 +93,73 @@ export default function Dashboard() {
     },
   });
 
+  const { data: completedOrders } = useQuery({
+    queryKey: ["completed-orders-count"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("siparis")
+        .select("id")
+        .eq("durum", "tamamlandi")
+        .limit(1000);
+
+      if (error) throw error;
+      return data?.length || 0;
+    },
+  });
+
+  const { data: financialSummary } = useQuery({
+    queryKey: ["dashboard-financial-summary"],
+    queryFn: async () => {
+      const today = new Date();
+      const todayStr = today.toISOString().split("T")[0];
+      const last7 = new Date();
+      last7.setDate(today.getDate() - 6);
+      const last7Str = last7.toISOString().split("T")[0];
+
+      const [{ data: orders, error: ordersError }, { data: maint, error: maintError }, { data: faults, error: faultsError }] =
+        await Promise.all([
+          supabase
+            .from("siparis")
+            .select("siparis_maliyeti, siparis_tarihi")
+            .gte("siparis_tarihi", last7Str),
+          supabase
+            .from("bakim_kaydi")
+            .select("maliyet, bakim_tarihi")
+            .gte("bakim_tarihi", last7Str),
+          supabase
+            .from("ariza_kaydi")
+            .select("maliyet, baslangic_tarihi")
+            .gte("baslangic_tarihi", last7Str),
+        ]);
+
+      if (ordersError) throw ordersError;
+      if (maintError) throw maintError;
+      if (faultsError) throw faultsError;
+
+      const weeklyRevenue =
+        orders?.reduce((sum: number, o: any) => sum + (o.siparis_maliyeti || 0), 0) || 0;
+
+      const dailyRevenue =
+        orders
+          ?.filter((o: any) => o.siparis_tarihi === todayStr)
+          .reduce((sum: number, o: any) => sum + (o.siparis_maliyeti || 0), 0) || 0;
+
+      const maintenanceCost =
+        maint?.reduce((sum: number, m: any) => sum + (m.maliyet || 0), 0) || 0;
+      const faultCost =
+        faults?.reduce((sum: number, f: any) => sum + (f.maliyet || 0), 0) || 0;
+
+      const weeklyCost = weeklyRevenue; // siparis_maliyeti toplamı
+      const profit = weeklyRevenue - maintenanceCost - faultCost;
+
+      return {
+        dailyCost: dailyRevenue,
+        weeklyCost,
+        profit,
+      };
+    },
+  });
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -105,7 +172,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard
             title="Üretim Verimliliği"
-            value="87%"
+            value={machineStatus ? `${Math.min(99, Math.max(60, Math.round(((machineStatus?.aktif || 0) / ((machineStatus?.aktif || 0) + (machineStatus?.boşta || 0) + (machineStatus?.arızalı || 0) + (machineStatus?.bakımda || 0) || 1)) * 100)))}%` : "—"}
             icon={TrendingUp}
             variant="success"
             subtitle="Günlük hedef: 85%"
@@ -316,15 +383,27 @@ export default function Dashboard() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Günlük Maliyet</span>
-                  <span className="text-lg font-bold text-card-foreground">₺45.8K</span>
+                  <span className="text-lg font-bold text-card-foreground">
+                    {financialSummary
+                      ? `₺${(financialSummary.dailyCost / 1000).toFixed(1)}K`
+                      : "—"}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Haftalık Maliyet</span>
-                  <span className="text-lg font-bold text-card-foreground">₺285K</span>
+                  <span className="text-lg font-bold text-card-foreground">
+                    {financialSummary
+                      ? `₺${(financialSummary.weeklyCost / 1000).toFixed(1)}K`
+                      : "—"}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between pt-3 border-t">
                   <span className="text-sm text-success">Toplam Kâr</span>
-                  <span className="text-lg font-bold text-success">₺124K</span>
+                  <span className="text-lg font-bold text-success">
+                    {financialSummary
+                      ? `₺${(financialSummary.profit / 1000).toFixed(1)}K`
+                      : "—"}
+                  </span>
                 </div>
               </div>
             </CardContent>

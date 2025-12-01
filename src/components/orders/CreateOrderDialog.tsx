@@ -26,6 +26,14 @@ export function CreateOrderDialog() {
       totalHours: number;
       availableMachines: number;
     };
+    machineEstimates?: Array<{
+      id: string;
+      ad: string;
+      durum: string;
+      currentWorkload: number;
+      totalHours: number;
+      estimatedFinish: string;
+    }>;
   } | null>(null);
   const { hasAnyRole } = useAuth();
 
@@ -112,6 +120,7 @@ export function CreateOrderDialog() {
           canProduce: data.canProduce,
           insufficientMaterials: data.insufficientMaterials || [],
           details: data.details,
+          machineEstimates: data.machineEstimates || [],
         });
         
         // Auto-fill delivery date if not set
@@ -259,35 +268,79 @@ export function CreateOrderDialog() {
           )}
 
           {estimatedDelivery && (
-            <Alert className={estimatedDelivery.canProduce ? "border-primary/50 bg-primary/10" : "border-destructive/50 bg-destructive/10"}>
-              <Clock className="h-4 w-4 text-white" />
-              <AlertDescription className="text-white">
-                {estimatedDelivery.canProduce ? (
-                  <>
-                    <strong>Tahmini Teslimat:</strong> {estimatedDelivery.days} gün içinde ({estimatedDelivery.date})
-                    {estimatedDelivery.details && (
-                      <p className="mt-2 text-xs text-white/80">
-                        {estimatedDelivery.details.availableMachines} makinenin ortalama kapasitesi{" "}
-                        {Math.round(estimatedDelivery.details.avgCapacity)} adet/saat. Toplam iş yükü yaklaşık{" "}
-                        {estimatedDelivery.details.totalHours.toFixed(1)} saat (~{estimatedDelivery.days} gün).
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <AlertTriangle className="h-4 w-4 inline mr-2" />
-                    <strong>Yetersiz Hammadde!</strong>
-                    <ul className="mt-2 ml-4 list-disc text-sm">
-                      {estimatedDelivery.insufficientMaterials.map((mat, idx) => (
-                        <li key={idx}>
-                          {mat.name}: Gerekli {mat.needed.toFixed(2)}, Mevcut {mat.available.toFixed(2)}
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-              </AlertDescription>
-            </Alert>
+            <div className="space-y-3">
+              <Alert className={estimatedDelivery.canProduce ? "border-primary/50 bg-primary/10" : "border-destructive/50 bg-destructive/10"}>
+                <Clock className="h-4 w-4 text-white" />
+                <AlertDescription className="text-white">
+                  {estimatedDelivery.canProduce ? (
+                    <>
+                      <strong>Genel Tahmini Teslimat:</strong> {estimatedDelivery.days} gün içinde ({estimatedDelivery.date})
+                      {estimatedDelivery.details && (
+                        <p className="mt-2 text-xs text-white/80">
+                          {estimatedDelivery.details.availableMachines} makinenin ortalama kapasitesi{" "}
+                          {Math.round(estimatedDelivery.details.avgCapacity)} adet/saat. Toplam iş yükü yaklaşık{" "}
+                          {estimatedDelivery.details.totalHours.toFixed(1)} saat (~{estimatedDelivery.days} gün).
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="h-4 w-4 inline mr-2" />
+                      <strong>Yetersiz Hammadde!</strong>
+                      <ul className="mt-2 ml-4 list-disc text-sm">
+                        {estimatedDelivery.insufficientMaterials.map((mat, idx) => (
+                          <li key={idx}>
+                            {mat.name}: Gerekli {mat.needed.toFixed(2)}, Mevcut {mat.available.toFixed(2)}
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                </AlertDescription>
+              </Alert>
+
+              {estimatedDelivery.canProduce && estimatedDelivery.machineEstimates && estimatedDelivery.machineEstimates.length > 0 && (
+                <div className="border border-border rounded-lg p-3 text-xs text-white/90 bg-secondary/30 space-y-2">
+                  <p className="font-semibold text-white text-sm">Makine Bazlı Tahmini Teslim Zamanı</p>
+                  <div className="max-h-40 overflow-y-auto">
+                    <table className="w-full text-[11px]">
+                      <thead className="text-white/70">
+                        <tr>
+                          <th className="text-left font-normal pr-2">Makine</th>
+                          <th className="text-left font-normal pr-2">Durum</th>
+                          <th className="text-right font-normal pr-2">Toplam Saat</th>
+                          <th className="text-right font-normal">Tahmini Tarih</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {estimatedDelivery.machineEstimates
+                          .sort((a, b) => a.totalHours - b.totalHours)
+                          .map((m) => {
+                            const finishDate = new Date(m.estimatedFinish);
+                            const dateStr = isNaN(finishDate.getTime())
+                              ? "-"
+                              : finishDate.toLocaleDateString("tr-TR", {
+                                  year: "numeric",
+                                  month: "2-digit",
+                                  day: "2-digit",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                });
+                            return (
+                              <tr key={m.id}>
+                                <td className="pr-2">{m.ad}</td>
+                                <td className="pr-2 capitalize">{m.durum}</td>
+                                <td className="pr-2 text-right">{m.totalHours.toFixed(1)} sa</td>
+                                <td className="text-right">{dateStr}</td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
           <div className="space-y-2">

@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { KpiCard } from "@/components/dashboard/KpiCard";
-import { ChartPlaceholder } from "@/components/dashboard/ChartPlaceholder";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -12,6 +11,19 @@ import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from "recharts";
 
 interface SiparisData {
   id: string;
@@ -75,6 +87,32 @@ export default function Siparisler() {
   const uretimdeSiparisler = siparisler.filter(s => s.durum === "uretimde");
   const tamamlananSiparisler = siparisler.filter(s => s.durum === "tamamlandi");
   const toplamTutar = siparisler.reduce((sum, s) => sum + (s.siparis_maliyeti || 0), 0);
+
+  const statusChartData = useMemo(() => {
+    const counts: Record<string, number> = { Bekleyen: 0, Üretimde: 0, Tamamlanan: 0 };
+    siparisler.forEach((s) => {
+      if (s.durum === "beklemede") counts.Bekleyen += 1;
+      if (s.durum === "uretimde") counts["Üretimde"] += 1;
+      if (s.durum === "tamamlandi") counts["Tamamlanan"] += 1;
+    });
+    return Object.entries(counts).map(([name, value]) => ({ name, value }));
+  }, [siparisler]);
+
+  const trendChartData = useMemo(() => {
+    const byMonth: Record<string, { ay: string; adet: number }> = {};
+    siparisler.forEach((s) => {
+      const d = s.siparis_tarihi ? new Date(s.siparis_tarihi) : null;
+      if (!d || Number.isNaN(d.getTime())) return;
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      if (!byMonth[key]) {
+        byMonth[key] = { ay: key, adet: 0 };
+      }
+      byMonth[key].adet += 1;
+    });
+    return Object.values(byMonth).sort((a, b) => (a.ay > b.ay ? 1 : -1));
+  }, [siparisler]);
+
+  const statusColors = ["#fbbf24", "#3b82f6", "#22c55e"];
 
   const handleApproveOrder = async (order: SiparisData) => {
     try {
@@ -402,16 +440,73 @@ export default function Siparisler() {
         </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ChartPlaceholder
-            title="Sipariş Durum Dağılımı"
-            type="pie"
-            height="h-80"
-          />
-          <ChartPlaceholder
-            title="Aylık Sipariş Trendi"
-            type="line"
-            height="h-80"
-          />
+          <Card className="bg-card border-border hover:border-primary/30 transition-all">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold text-card-foreground">
+                Sipariş Durum Dağılımı
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="h-80">
+              {statusChartData.every(d => d.value === 0) ? (
+                <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+                  Sipariş verisi bulunamadı
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={statusChartData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={100}
+                      labelLine={false}
+                      label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                    >
+                      {statusChartData.map((_, idx) => (
+                        <Cell key={idx} fill={statusColors[idx % statusColors.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card border-border hover:border-primary/30 transition-all">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold text-card-foreground">
+                Aylık Sipariş Trendi
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="h-80">
+              {trendChartData.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+                  Sipariş verisi bulunamadı
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={trendChartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <XAxis dataKey="ay" stroke="#9ca3af" />
+                    <YAxis stroke="#9ca3af" />
+                    <Tooltip />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="adet"
+                      name="Sipariş Adedi"
+                      stroke="#3b82f6"
+                      strokeWidth={2}
+                      dot={{ r: 4 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </DashboardLayout>

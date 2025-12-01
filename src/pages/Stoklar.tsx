@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { KpiCard } from "@/components/dashboard/KpiCard";
-import { ChartPlaceholder } from "@/components/dashboard/ChartPlaceholder";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +14,19 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 
 interface Hammadde {
   id: string;
@@ -177,6 +189,32 @@ export default function Stoklar() {
     [urunler]
   );
 
+  const hammaddeTuketimData = useMemo(
+    () =>
+      [...hammaddeler]
+        .map((h) => ({
+          ad: h.ad,
+          hiz: Number(h.tuketim_hizi || 0),
+        }))
+        .sort((a, b) => b.hiz - a.hiz)
+        .slice(0, 10),
+    [hammaddeler]
+  );
+
+  const stokDegerData = useMemo(
+    () =>
+      [...urunler]
+        .map((u) => ({
+          ad: u.ad,
+          deger: (u.stok_miktari || 0) * (u.satis_fiyati || 0),
+        }))
+        .sort((a, b) => b.deger - a.deger)
+        .slice(0, 8),
+    [urunler]
+  );
+
+  const pieColors = ["#3b82f6", "#22c55e", "#eab308", "#ef4444", "#a855f7", "#06b6d4", "#f97316", "#64748b"];
+
   const exportToExcel = () => {
     const hammaddeData = hammaddeler.map((h) => {
       const isDusuk = (h.stok_miktari || 0) <= (h.kritik_stok_seviyesi || 0);
@@ -241,9 +279,9 @@ export default function Stoklar() {
               </>
             )}
             <Button onClick={exportToExcel} variant="outline" className="gap-2">
-              <Download className="w-4 h-4" />
+            <Download className="w-4 h-4" />
               Excel Raporu
-            </Button>
+          </Button>
           </div>
         </div>
 
@@ -352,7 +390,7 @@ export default function Stoklar() {
                 {hammaddeler.map((hammadde) => {
                   const isDusuk = (hammadde.stok_miktari || 0) <= (hammadde.kritik_stok_seviyesi || 0);
                   const toplamDeger = (hammadde.stok_miktari || 0) * (hammadde.birim_fiyat || 0);
-
+                  
                   return (
                     <TableRow key={hammadde.id}>
                       <TableCell className="font-medium">{hammadde.ad}</TableCell>
@@ -411,7 +449,7 @@ export default function Stoklar() {
                 {urunler.map((urun) => {
                   const isDusuk = (urun.stok_miktari || 0) <= (urun.kritik_stok_seviyesi || 0);
                   const toplamDeger = (urun.stok_miktari || 0) * (urun.satis_fiyati || 0);
-
+                  
                   return (
                     <TableRow key={urun.id}>
                       <TableCell className="font-medium">{urun.ad}</TableCell>
@@ -444,16 +482,75 @@ export default function Stoklar() {
         </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ChartPlaceholder
-            title="Hammadde Tüketim Hızı"
-            type="line"
-            height="h-80"
-          />
-          <ChartPlaceholder
-            title="Stok Değer Dağılımı"
-            type="pie"
-            height="h-80"
-          />
+          <Card className="bg-card border-border hover:border-primary/30 transition-all">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold text-card-foreground">
+                Hammadde Tüketim Hızı (En Çok Tüketilen 10)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="h-80">
+              {hammaddeTuketimData.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+                  Hammadde verisi bulunamadı
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={hammaddeTuketimData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <XAxis dataKey="ad" stroke="#9ca3af" hide />
+                    <YAxis stroke="#9ca3af" />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="hiz" name="Tüketim (birim/gün)" fill="#3b82f6" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card border-border hover:border-primary/30 transition-all">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold text-card-foreground">
+                Ürün Stok Değer Dağılımı (En Yüksek 8)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="h-80">
+              {stokDegerData.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+                  Ürün verisi bulunamadı
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={stokDegerData}
+                      dataKey="deger"
+                      nameKey="ad"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={100}
+                      labelLine={false}
+                      label={({ name, percent }) =>
+                        `${name} (${(percent * 100).toFixed(0)}%)`
+                      }
+                    >
+                      {stokDegerData.map((_, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={pieColors[index % pieColors.length]}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value: any) =>
+                        `₺${Number(value).toLocaleString("tr-TR")}`
+                      }
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
 
