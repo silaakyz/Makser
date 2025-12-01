@@ -120,6 +120,39 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 5. If this is a production-based order, deduct finished product stock immediately
+    if (orderData.kaynak === 'uretim') {
+      const { data: product, error: productError } = await supabaseClient
+        .from('urun')
+        .select('stok_miktari, ad')
+        .eq('id', orderData.urun_id)
+        .single()
+
+      if (productError) {
+        console.error('Product fetch error (uretim order):', productError)
+        throw productError
+      }
+
+      if (product) {
+        const currentStock = Number(product.stok_miktari ?? 0)
+        const newStock = Math.max(0, currentStock - orderData.miktar)
+
+        const { error: updateProductError } = await supabaseClient
+          .from('urun')
+          .update({ stok_miktari: newStock })
+          .eq('id', orderData.urun_id)
+
+        if (updateProductError) {
+          console.error('Product stock deduction error (uretim order):', updateProductError)
+          throw updateProductError
+        }
+
+        console.log(
+          `Order-based production deducted from product stock: ${product.ad} -> ${currentStock} -> ${newStock}`,
+        )
+      }
+    }
+
     console.log('Order processed successfully:', newOrder.id);
 
     return new Response(

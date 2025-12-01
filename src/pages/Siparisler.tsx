@@ -142,46 +142,50 @@ export default function Siparisler() {
     try {
       setActionLoading(order.id);
 
-      const { data: product, error: productError } = await supabase
-        .from("urun")
-        .select("stok_miktari")
-        .eq("id", order.urun_id)
-        .maybeSingle();
+      const shouldHandleStockManually = order.kaynak !== "uretim";
 
-      if (productError) throw productError;
-      const newProductStock = Math.max(0, (product?.stok_miktari || 0) - order.miktar);
-
-      const { error: updateProductError } = await supabase
-        .from("urun")
-        .update({ stok_miktari: newProductStock })
-        .eq("id", order.urun_id);
-
-      if (updateProductError) throw updateProductError;
-
-      const { data: recipe, error: recipeError } = await supabase
-        .from("urun_hammadde")
-        .select("hammadde_id, miktar")
-        .eq("urun_id", order.urun_id);
-
-      if (recipeError) throw recipeError;
-
-      for (const row of recipe || []) {
-        const usage = (row.miktar || 0) * order.miktar;
-        const { data: material, error: materialError } = await supabase
-          .from("hammadde")
+      if (shouldHandleStockManually) {
+        const { data: product, error: productError } = await supabase
+          .from("urun")
           .select("stok_miktari")
-          .eq("id", row.hammadde_id)
+          .eq("id", order.urun_id)
           .maybeSingle();
 
-        if (materialError) throw materialError;
+        if (productError) throw productError;
+        const newProductStock = Math.max(0, (product?.stok_miktari || 0) - order.miktar);
 
-        const newMaterialStock = Math.max(0, (material?.stok_miktari || 0) - usage);
-        const { error: updateMaterialError } = await supabase
-          .from("hammadde")
-          .update({ stok_miktari: newMaterialStock })
-          .eq("id", row.hammadde_id);
+        const { error: updateProductError } = await supabase
+          .from("urun")
+          .update({ stok_miktari: newProductStock })
+          .eq("id", order.urun_id);
 
-        if (updateMaterialError) throw updateMaterialError;
+        if (updateProductError) throw updateProductError;
+
+        const { data: recipe, error: recipeError } = await supabase
+          .from("urun_hammadde")
+          .select("hammadde_id, miktar")
+          .eq("urun_id", order.urun_id);
+
+        if (recipeError) throw recipeError;
+
+        for (const row of recipe || []) {
+          const usage = (row.miktar || 0) * order.miktar;
+          const { data: material, error: materialError } = await supabase
+            .from("hammadde")
+            .select("stok_miktari")
+            .eq("id", row.hammadde_id)
+            .maybeSingle();
+
+          if (materialError) throw materialError;
+
+          const newMaterialStock = Math.max(0, (material?.stok_miktari || 0) - usage);
+          const { error: updateMaterialError } = await supabase
+            .from("hammadde")
+            .update({ stok_miktari: newMaterialStock })
+            .eq("id", row.hammadde_id);
+
+          if (updateMaterialError) throw updateMaterialError;
+        }
       }
 
       const { error: orderError } = await supabase
@@ -194,7 +198,11 @@ export default function Siparisler() {
 
       if (orderError) throw orderError;
 
-      toast.success("Sipariş tamamlandı, stoklar güncellendi");
+      toast.success(
+        shouldHandleStockManually
+          ? "Sipariş tamamlandı, stoklar güncellendi"
+          : "Sipariş tamamlandı"
+      );
       fetchSiparisler();
     } catch (error: any) {
       console.error("Sipariş tamamlanırken hata:", error);
