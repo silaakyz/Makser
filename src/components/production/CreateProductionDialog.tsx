@@ -64,9 +64,22 @@ export function CreateProductionDialog({ onProductionCreated }: { onProductionCr
                 return;
             }
 
+            // 1. Get the max ID to generate a new manual ID (since DB sequence might be missing/broken)
+            const { data: lastRecord, error: lastRecordError } = await supabase
+                .from("uretim_kayit")
+                .select("uretim_id")
+                .order("uretim_id", { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (lastRecordError) throw lastRecordError;
+
+            const nextId = (lastRecord?.uretim_id || 0) + 1;
+
             const { error } = await supabase
                 .from("uretim_kayit")
                 .insert({
+                    uretim_id: nextId,
                     urun_id: parseInt(formData.urun_id),
                     makine_id: parseInt(formData.makine_id),
                     baslama_zamani: new Date(formData.baslama_zamani).toISOString(),
