@@ -9,6 +9,7 @@ import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { Download } from "lucide-react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
+import { CreateProductionDialog } from "@/components/production/CreateProductionDialog";
 
 const ProductionModule: React.FC = () => {
   const [machines, setMachines] = useState<Machine[]>([]);
@@ -24,23 +25,25 @@ const ProductionModule: React.FC = () => {
   }>>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const machinesData = await machineService.getAll();
-        const oeeData = await productionService.getOEEMetrics();
-        const active = await productionService.getActiveProductions();
-        setMachines(machinesData);
-        setOee(oeeData);
-        setActiveProductions(active);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+  const fetchData = React.useCallback(async () => {
+    try {
+      setLoading(true); // Opsiyonel: yenilenirken loading gösterilebilir veya sessizce yapılabilir
+      const machinesData = await machineService.getAll();
+      const oeeData = await productionService.getOEEMetrics();
+      const active = await productionService.getActiveProductions();
+      setMachines(machinesData);
+      setOee(oeeData);
+      setActiveProductions(active);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const exportToExcel = () => {
     // Makineler için worksheet
@@ -78,7 +81,7 @@ const ProductionModule: React.FC = () => {
     // Excel dosyasını indir
     const fileName = `Uretim_Raporu_${new Date().toISOString().split("T")[0]}.xlsx`;
     XLSX.writeFile(wb, fileName);
-    
+
     toast.success("Rapor başarıyla indirildi!");
   };
 
@@ -97,10 +100,13 @@ const ProductionModule: React.FC = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">Yeni Üretim</h1>
-          <Button onClick={exportToExcel} className="gap-2">
-            <Download className="w-4 h-4" />
-            Excel Raporu İndir
-          </Button>
+          <div className="flex items-center gap-2">
+            <CreateProductionDialog onProductionCreated={fetchData} />
+            <Button onClick={exportToExcel} className="gap-2">
+              <Download className="w-4 h-4" />
+              Excel Raporu İndir
+            </Button>
+          </div>
         </div>
 
         {/* Makineler Tablosu */}
