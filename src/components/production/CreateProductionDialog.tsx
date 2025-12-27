@@ -14,7 +14,7 @@ export function CreateProductionDialog({ onProductionCreated }: { onProductionCr
     const [loading, setLoading] = useState(false);
 
     const [products, setProducts] = useState<Array<{ urun_id: number; ad: string }>>([]);
-    const [machines, setMachines] = useState<Array<{ makine_id: number; ad: string }>>([]);
+    const [machines, setMachines] = useState<Array<{ makine_id: number; ad: string; isActive?: boolean }>>([]);
 
     const [formData, setFormData] = useState({
         urun_id: "",
@@ -39,6 +39,15 @@ export function CreateProductionDialog({ onProductionCreated }: { onProductionCr
             if (pError) throw pError;
             setProducts(pData || []);
 
+            // Fetch Active Productions (Machines currently working)
+            const { data: activeData, error: activeError } = await supabase
+                .from("uretim_kayit")
+                .select("makine_id")
+                .is("bitis_zamani", null);
+
+            if (activeError) throw activeError;
+            const activeMachineIds = new Set((activeData || []).map(d => d.makine_id));
+
             // Fetch Machines
             const { data: mData, error: mError } = await supabase
                 .from("makine")
@@ -46,7 +55,14 @@ export function CreateProductionDialog({ onProductionCreated }: { onProductionCr
                 .order("ad");
 
             if (mError) throw mError;
-            setMachines(mData || []);
+
+            // Mark active machines
+            const machinesWithStatus = (mData || []).map((m: any) => ({
+                ...m,
+                isActive: activeMachineIds.has(m.makine_id)
+            }));
+
+            setMachines(machinesWithStatus);
 
         } catch (error) {
             console.error("Seçenekler yüklenirken hata:", error);
@@ -153,8 +169,8 @@ export function CreateProductionDialog({ onProductionCreated }: { onProductionCr
                             </SelectTrigger>
                             <SelectContent className="bg-secondary border-border text-foreground">
                                 {machines.map((m) => (
-                                    <SelectItem key={m.makine_id} value={String(m.makine_id)}>
-                                        {m.ad}
+                                    <SelectItem key={m.makine_id} value={String(m.makine_id)} disabled={m.isActive}>
+                                        {m.ad} {m.isActive ? '(Çalışıyor)' : ''}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
