@@ -67,21 +67,58 @@ export const productionService = {
 
 export const machineService = {
   async getAll(): Promise<Machine[]> {
-    const { data } = await supabase.from('makine').select('*');
+    const { data: machines } = await supabase.from('makine').select('*');
 
-    return (data || []).map((m: any) => ({
-      id: String(m.makine_id),
-      name: m.ad,
-      status: 'active', // Defaulting as durum missing
-      capacity: parseInt(m.kapasite || '0'),
-      currentLoad: 0,
-      totalUptime: 0,
-      totalDowntime: 0,
-      mtbf: 0,
-      faults: [],
-      lastMaintenance: m.son_bakim_tarihi || '-',
-      nextMaintenance: m.sonraki_bakim_tarihi || '-'
-    }));
+    // Fetch active productions to fill details
+    const { data: activeProductions } = await supabase
+      .from('uretim_kayit')
+      .select(`
+        makine_id,
+        baslama_zamani,
+        hedef_adet,
+        uretilen_adet,
+        urun (ad)
+      `)
+      .is('bitis_zamani', null);
+
+    const activeMap = new Map();
+    (activeProductions || []).forEach((p: any) => {
+      activeMap.set(p.makine_id, p);
+    });
+
+    return (machines || []).map((m: any) => {
+      const active = activeMap.get(m.makine_id);
+
+      let status: 'active' | 'idle' | 'maintenance' | 'fault' = 'idle';
+      // If we had status in DB column we would use it, but now derive:
+      if (active) status = 'active';
+
+      let estimatedEnd = '-';
+      if (active && active.baslama_zamani) {
+        // Simple estimation: if progress is X%, how much time left? 
+        // Or just add 4 hours default if invalid.
+        // Let's format start time
+        const start = new Date(active.baslama_zamani);
+        estimatedEnd = new Date(start.getTime() + 4 * 60 * 60 * 1000).toLocaleString('tr-TR');
+      }
+
+      return {
+        id: String(m.makine_id),
+        name: m.ad,
+        status: status,
+        currentProduct: active ? active.urun?.ad : '-',
+        startTime: active ? new Date(active.baslama_zamani).toLocaleString('tr-TR') : '-',
+        estimatedEnd: active ? estimatedEnd : '-',
+        capacity: parseInt(m.kapasite || '0'),
+        currentLoad: active ? (active.uretilen_adet || 0) : 0,
+        totalUptime: 0,
+        totalDowntime: 0,
+        mtbf: 0,
+        faults: [],
+        lastMaintenance: m.son_bakim_tarihi || '-',
+        nextMaintenance: m.sonraki_bakim_tarihi || '-'
+      };
+    });
   },
 
   async getById(id: string): Promise<Machine> {
