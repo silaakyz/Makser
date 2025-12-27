@@ -89,15 +89,22 @@ export const machineService = {
     return (machines || []).map((m: any) => {
       const active = activeMap.get(m.makine_id);
 
+      // Status priority: DB Status (Maintenance/Fault) > Active Prod > Idle
+      // If DB has 'maintenance' or 'fault', force it.
+      // If DB is 'active' or 'idle' (or null), check if running production.
+
       let status: 'active' | 'idle' | 'maintenance' | 'fault' = 'idle';
-      // If we had status in DB column we would use it, but now derive:
-      if (active) status = 'active';
+
+      if (m.durum === 'maintenance' || m.durum === 'fault') {
+        status = m.durum;
+      } else if (active) {
+        status = 'active';
+      } else {
+        status = 'idle';
+      }
 
       let estimatedEnd = '-';
       if (active && active.baslama_zamani) {
-        // Simple estimation: if progress is X%, how much time left? 
-        // Or just add 4 hours default if invalid.
-        // Let's format start time
         const start = new Date(active.baslama_zamani);
         estimatedEnd = new Date(start.getTime() + 4 * 60 * 60 * 1000).toLocaleString('tr-TR');
       }
