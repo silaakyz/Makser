@@ -26,6 +26,7 @@ export function CreateProductionDialog({ onProductionCreated }: { onProductionCr
         urun_id: "",
         makine_id: "",
         hedef_adet: "100",
+        baslangic_uretilen: "0",
         baslama_zamani: getLocalNow(),
     });
 
@@ -130,7 +131,7 @@ export function CreateProductionDialog({ onProductionCreated }: { onProductionCr
                     baslama_zamani: new Date(formData.baslama_zamani).toISOString(),
                     // bitis_zamani null ise "devam ediyor" demektir.
                     hedef_adet: parseInt(formData.hedef_adet) || 100,
-                    uretilen_adet: 0,
+                    uretilen_adet: parseInt(formData.baslangic_uretilen) || 0,
                     fire_adet: 0
                 } as any);
 
@@ -145,6 +146,7 @@ export function CreateProductionDialog({ onProductionCreated }: { onProductionCr
                 urun_id: "",
                 makine_id: "",
                 hedef_adet: "100",
+                baslangic_uretilen: "0",
                 baslama_zamani: getLocalNow(),
             });
 
@@ -210,16 +212,29 @@ export function CreateProductionDialog({ onProductionCreated }: { onProductionCr
                         </Select>
                     </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="hedef_adet">Hedef Üretim Miktarı</Label>
-                        <Input
-                            id="hedef_adet"
-                            type="number"
-                            min="1"
-                            value={formData.hedef_adet}
-                            onChange={(e) => setFormData({ ...formData, hedef_adet: e.target.value })}
-                            className="bg-secondary border-border text-foreground"
-                        />
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="hedef_adet">Hedef Adet</Label>
+                            <Input
+                                id="hedef_adet"
+                                type="number"
+                                min="1"
+                                value={formData.hedef_adet}
+                                onChange={(e) => setFormData({ ...formData, hedef_adet: e.target.value })}
+                                className="bg-secondary border-border text-foreground"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="baslangic_uretilen">Başlangıç Üretilen</Label>
+                            <Input
+                                id="baslangic_uretilen"
+                                type="number"
+                                min="0"
+                                value={formData.baslangic_uretilen}
+                                onChange={(e) => setFormData({ ...formData, baslangic_uretilen: e.target.value })}
+                                className="bg-secondary border-border text-foreground"
+                            />
+                        </div>
                     </div>
 
                     <div className="space-y-2">
