@@ -109,7 +109,8 @@ export const machineService = {
         currentProduct: active ? active.urun?.ad : '-',
         startTime: active ? new Date(active.baslama_zamani).toLocaleString('tr-TR') : '-',
         estimatedEnd: active ? estimatedEnd : '-',
-        capacity: parseInt(m.kapasite || '0'),
+        // Aktif iş varsa kapasite olarak hedef adedi göster (Yük = Üretilen / Hedef)
+        capacity: active && active.hedef_adet ? active.hedef_adet : parseInt(m.kapasite || '0'),
         currentLoad: active ? (active.uretilen_adet || 0) : 0,
         totalUptime: 0,
         totalDowntime: 0,
