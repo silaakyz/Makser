@@ -16,14 +16,22 @@ export function CreateProductionDialog({ onProductionCreated }: { onProductionCr
     const [products, setProducts] = useState<Array<{ urun_id: number; ad: string }>>([]);
     const [machines, setMachines] = useState<Array<{ makine_id: number; ad: string; isActive?: boolean; activeDetail?: any }>>([]);
 
+    const getLocalNow = () => {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        return now.toISOString().slice(0, 16);
+    };
+
     const [formData, setFormData] = useState({
         urun_id: "",
         makine_id: "",
-        baslama_zamani: new Date().toISOString().slice(0, 16), // YYYY-MM-DDTHH:mm format for input type="datetime-local"
+        hedef_adet: "100",
+        baslama_zamani: getLocalNow(),
     });
 
     useEffect(() => {
         if (open) {
+            setFormData(prev => ({ ...prev, baslama_zamani: getLocalNow() }));
             fetchOptions();
         }
     }, [open]);
@@ -42,11 +50,32 @@ export function CreateProductionDialog({ onProductionCreated }: { onProductionCr
             // Fetch Active Productions (Machines currently working)
             const { data: activeData, error: activeError } = await supabase
                 .from("uretim_kayit")
-                .select("makine_id")
+                .select(`
+                    makine_id, 
+                    hedef_adet, 
+                    uretilen_adet, 
+                    urun (ad),
+                    baslama_zamani
+                `)
                 .is("bitis_zamani", null);
 
             if (activeError) throw activeError;
-            const activeMachineIds = new Set((activeData || []).map(d => d.makine_id));
+
+            const activeMachineMap = new Map();
+            (activeData || []).forEach((item: any) => {
+                const oran = item.hedef_adet > 0
+                    ? Math.round((item.uretilen_adet / item.hedef_adet) * 100)
+                    : 0;
+
+                const baslangic = new Date(item.baslama_zamani);
+                const saat = baslangic.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+
+                activeMachineMap.set(item.makine_id, {
+                    urunAd: item.urun?.ad || 'Bilinmiyor',
+                    oran: oran,
+                    baslangic: saat
+                });
+            });
 
             // Fetch Machines
             const { data: mData, error: mError } = await supabase
@@ -56,10 +85,10 @@ export function CreateProductionDialog({ onProductionCreated }: { onProductionCr
 
             if (mError) throw mError;
 
-            // Mark active machines
             const machinesWithStatus = (mData || []).map((m: any) => ({
                 ...m,
-                isActive: activeMachineIds.has(m.makine_id)
+                isActive: activeMachineMap.has(m.makine_id),
+                activeDetail: activeMachineMap.get(m.makine_id)
             }));
 
             setMachines(machinesWithStatus);
@@ -179,6 +208,18 @@ export function CreateProductionDialog({ onProductionCreated }: { onProductionCr
                                 ))}
                             </SelectContent>
                         </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="hedef_adet">Hedef Üretim Miktarı</Label>
+                        <Input
+                            id="hedef_adet"
+                            type="number"
+                            min="1"
+                            value={formData.hedef_adet}
+                            onChange={(e) => setFormData({ ...formData, hedef_adet: e.target.value })}
+                            className="bg-secondary border-border text-foreground"
+                        />
                     </div>
 
                     <div className="space-y-2">
