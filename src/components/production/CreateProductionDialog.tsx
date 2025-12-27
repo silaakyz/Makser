@@ -14,7 +14,7 @@ export function CreateProductionDialog({ onProductionCreated }: { onProductionCr
     const [loading, setLoading] = useState(false);
 
     const [products, setProducts] = useState<Array<{ urun_id: number; ad: string }>>([]);
-    const [machines, setMachines] = useState<Array<{ makine_id: number; ad: string; isActive?: boolean }>>([]);
+    const [machines, setMachines] = useState<Array<{ makine_id: number; ad: string; isActive?: boolean; activeDetail?: any }>>([]);
 
     const [formData, setFormData] = useState({
         urun_id: "",
@@ -170,7 +170,7 @@ export function CreateProductionDialog({ onProductionCreated }: { onProductionCr
                             <SelectContent className="bg-secondary border-border text-foreground">
                                 {machines.map((m) => (
                                     <SelectItem key={m.makine_id} value={String(m.makine_id)} disabled={m.isActive}>
-                                        {m.ad} {m.isActive ? '(Çalışıyor)' : ''}
+                                        {m.ad} {m.isActive ? `(Çalışıyor: ${m.activeDetail?.urunAd} - %${m.activeDetail?.oran})` : ''}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
