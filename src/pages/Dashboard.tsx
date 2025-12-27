@@ -56,23 +56,45 @@ export default function Dashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("makine")
-        .select("*") // 'durum' column missing
-        .limit(100);
+        .select("durum");
 
       if (error) {
         console.error("Machine Status Error:", error);
-        return {};
+        return {} as Record<string, number>;
       }
 
-      // Mock status since 'durum' column is missing in schema
-      const statusCounts = data.reduce((acc, machine) => {
-        // Random status for demo or default to 'aktif'
-        const mockStatus = 'aktif';
-        acc[mockStatus] = (acc[mockStatus] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
+      // Status mapping DB(EN) -> UI(TR)
+      const statusMap: Record<string, string> = {
+        'active': 'aktif',
+        'idle': 'boşta',
+        'maintenance': 'bakimda', // Use English key or mapped key for consolidation
+        'fault': 'arizali'
+      };
 
-      return statusCounts;
+      // We want keys to match what chart expects (probably 'Aktif', 'Boşta', 'Arızalı', 'Bakımda')
+      // Let's verify how chart consumes it. It seems to iterate over keys.
+      // Let's standardise keys:
+
+      const counts = {
+        'aktif': 0,
+        'boşta': 0,
+        'arızalı': 0,
+        'bakımda': 0
+      };
+
+      (data || []).forEach((m: any) => {
+        const rawStatus = m.durum || 'idle';
+        let key = 'boşta';
+
+        if (rawStatus === 'active') key = 'aktif';
+        else if (rawStatus === 'idle') key = 'boşta';
+        else if (rawStatus === 'maintenance') key = 'bakımda';
+        else if (rawStatus === 'fault') key = 'arızalı';
+
+        counts[key as keyof typeof counts]++;
+      });
+
+      return counts;
     },
   });
 
