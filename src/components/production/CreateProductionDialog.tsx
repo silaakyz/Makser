@@ -170,7 +170,7 @@ export function CreateProductionDialog({ onProductionCreated }: { onProductionCr
                             <SelectContent className="bg-secondary border-border text-foreground">
                                 {machines.map((m) => (
                                     <SelectItem key={m.makine_id} value={String(m.makine_id)} disabled={m.isActive}>
-                                        {m.ad} {m.isActive ? `(Çalışıyor: ${m.activeDetail?.urunAd} - %${m.activeDetail?.oran})` : ''}
+                                        {m.ad} {m.isActive ? `(DOLU | ${m.activeDetail?.urunAd} | Baş: ${m.activeDetail?.baslangic} | %${m.activeDetail?.oran})` : ''}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
