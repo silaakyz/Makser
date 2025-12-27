@@ -201,22 +201,38 @@ export const orderService = {
       .select('*, urun(ad), musteri:musteriler(isim, soyisim)')
       .order('siparis_tarihi', { ascending: false });
 
-    return (data || []).map((s: any, idx: number) => ({
+    const realOrders = (data || []).map((s: any, idx: number) => ({
       id: String(s.siparis_id),
       orderNumber: `ORD-${s.siparis_id}`,
       productId: String(s.urun_id || ''),
       productName: s.urun?.ad || 'Bilinmeyen',
-      quantity: 1, // Quantity missing in siparis table
+      quantity: s.miktar || 1,
       status: (s.durum === 'tamamlandi' ? 'completed' : s.durum === 'uretimde' ? 'in_progress' : 'pending') as any,
       orderDate: s.siparis_tarihi,
       deliveryDate: s.teslim_tarihi,
       estimatedDelivery: s.teslim_tarihi,
       customer: s.musteri ? `${s.musteri.isim} ${s.musteri.soyisim}` : 'Bilinmeyen',
       priority: 'medium' as any,
-      productionSource: 'production',
-      progress: s.durum === 'tamamlandi' ? 100 : 0,
+      productionSource: s.kaynak || 'production',
+      progress: s.durum === 'tamamlandi' ? 100 : s.durum === 'uretimde' ? 50 : 0,
       assignedMachines: []
     }));
+
+    // Yapay Veriler (Mock Data)
+    const fakeOrders: ProductionOrder[] = [
+      { id: '9001', orderNumber: 'ORD-9001', productId: '3012', productName: 'Isı Pompası 16kW', quantity: 5, status: 'in_progress', orderDate: '2024-12-25', deliveryDate: '2025-01-15', estimatedDelivery: '2025-01-15', customer: 'Ahmet Yılmaz', priority: 'high', productionSource: 'Web', progress: 45, assignedMachines: [] },
+      { id: '9002', orderNumber: 'ORD-9002', productId: '3013', productName: 'Klima Santrali', quantity: 2, status: 'pending', orderDate: '2024-12-26', deliveryDate: '2025-02-01', estimatedDelivery: '2025-02-01', customer: 'Ayşe Kaya', priority: 'medium', productionSource: 'Bayi', progress: 0, assignedMachines: [] },
+      { id: '9003', orderNumber: 'ORD-9003', productId: '3015', productName: 'Kalorifer Kazanı', quantity: 1, status: 'completed', orderDate: '2024-12-10', deliveryDate: '2024-12-28', estimatedDelivery: '2024-12-28', customer: 'Mehmet Demir', priority: 'low', productionSource: 'Referans', progress: 100, assignedMachines: [] },
+      { id: '9004', orderNumber: 'ORD-9004', productId: '3016', productName: 'Sanayi Tipi Fan', quantity: 10, status: 'in_progress', orderDate: '2024-12-20', deliveryDate: '2025-01-10', estimatedDelivery: '2025-01-10', customer: 'Fatma Çelik', priority: 'high', productionSource: 'Telefon', progress: 70, assignedMachines: [] },
+      { id: '9005', orderNumber: 'ORD-9005', productId: '3014', productName: 'Yerden Isıtma Paneli', quantity: 50, status: 'pending', orderDate: '2024-12-27', deliveryDate: '2025-01-30', estimatedDelivery: '2025-01-30', customer: 'Mustafa Şahin', priority: 'medium', productionSource: 'Web', progress: 0, assignedMachines: [] },
+      { id: '9006', orderNumber: 'ORD-9006', productId: '3012', productName: 'Isı Pompası 10kW', quantity: 3, status: 'pending', orderDate: '2024-12-27', deliveryDate: '2025-02-15', estimatedDelivery: '2025-02-15', customer: 'Zeynep Tekin', priority: 'medium', productionSource: 'Linkedin', progress: 0, assignedMachines: [] },
+      { id: '9007', orderNumber: 'ORD-9007', productId: '3013', productName: 'Klima Dış Ünite', quantity: 8, status: 'in_progress', orderDate: '2024-12-22', deliveryDate: '2025-01-20', estimatedDelivery: '2025-01-20', customer: 'Ali Vural', priority: 'high', productionSource: 'Bayi', progress: 25, assignedMachines: [] },
+      { id: '9008', orderNumber: 'ORD-9008', productId: '3015', productName: 'Kazan Brülörü', quantity: 4, status: 'completed', orderDate: '2024-12-05', deliveryDate: '2024-12-25', estimatedDelivery: '2024-12-25', customer: 'Selin Aras', priority: 'low', productionSource: 'Referans', progress: 100, assignedMachines: [] },
+      { id: '9009', orderNumber: 'ORD-9009', productId: '3016', productName: 'Havalandırma Borusu', quantity: 100, status: 'pending', orderDate: '2024-12-27', deliveryDate: '2025-02-05', estimatedDelivery: '2025-02-05', customer: 'Cemil Koç', priority: 'medium', productionSource: 'Web', progress: 0, assignedMachines: [] },
+      { id: '9010', orderNumber: 'ORD-9010', productId: '3014', productName: 'Termostatik Vana', quantity: 200, status: 'in_progress', orderDate: '2024-12-24', deliveryDate: '2025-01-18', estimatedDelivery: '2025-01-18', customer: 'Elif Polat', priority: 'high', productionSource: 'Telefon', progress: 60, assignedMachines: [] }
+    ];
+
+    return [...fakeOrders, ...realOrders];
   }
 };
 

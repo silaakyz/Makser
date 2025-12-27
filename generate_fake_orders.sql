@@ -1,6 +1,38 @@
--- Gelecek Teslimat Tarihli 10 Adet Yapay Sipariş Oluşturma
--- Bu script, siparis tablosuna 10 yeni kayıt ve siparis_maliyet tablosuna ilgili maliyetleri ekler.
+-- Gelecek Teslimat Tarihli 10 Adet Yapay Sipariş Oluşturma (Final Sadeleştirilmiş)
+-- DÜZELTME: Olmayan / İstenmeyen sütunlar (email, telefon, adres) kaldırıldı.
+-- Sadece İsim, Soyisim ve ID kullanılarak müşteri oluşturuluyor.
 
+-- 1. Tablo Yapısını Güncelle
+DO $$
+BEGIN
+    -- Sipariş Kısıtlamasını Kaldır
+    ALTER TABLE public.siparis DROP CONSTRAINT IF EXISTS siparis_urun_id_key;
+
+    -- 'miktar' sütunu ekle (Eğer yoksa)
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'siparis' AND column_name = 'miktar') THEN
+        ALTER TABLE public.siparis ADD COLUMN miktar INTEGER DEFAULT 1;
+    END IF;
+
+    -- 'kaynak' sütunu ekle (Eğer yoksa)
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'siparis' AND column_name = 'kaynak') THEN
+        ALTER TABLE public.siparis ADD COLUMN kaynak TEXT DEFAULT 'Doğrudan';
+    END IF;
+
+EXCEPTION
+    WHEN OTHERS THEN RAISE NOTICE 'Schema update error: %', SQLERRM;
+END $$;
+
+-- 2. Sadece İsim ve Soyisim ile Müşteri Oluştur
+-- Not: Eğer 'isim' veya 'soyisim' sütunları da yoksa (örn: sadece 'ad' varsa), lütfen belirtin.
+INSERT INTO public.musteriler (musteri_id, isim, soyisim) VALUES
+(9000, 'Ahmet', 'Yılmaz'),
+(9001, 'Ayşe', 'Kaya'),
+(9002, 'Mehmet', 'Demir'),
+(9003, 'Fatma', 'Çelik'),
+(9004, 'Mustafa', 'Şahin')
+ON CONFLICT (musteri_id) DO NOTHING;
+
+-- 3. Siparişleri Oluştur
 DO $$
 DECLARE
     v_siparis_id INT;
@@ -8,51 +40,48 @@ DECLARE
     v_urun_id INT;
     v_siparis_tarihi DATE;
     v_teslim_tarihi DATE;
-    v_durum TEXT;
+    v_miktar INT;
+    v_kaynak TEXT;
     v_satis_fiyati DECIMAL;
-    v_iscilik DECIMAL;
+    v_kaynaklar TEXT[] := ARRAY['Web', 'Telefon', 'Referans', 'Bayi', 'Linkedin'];
+    v_max_id INT;
     i INT;
-    v_durumlar TEXT[] := ARRAY['Beklemede', 'Onaylandı', 'Hazırlanıyor', 'Üretimde'];
 BEGIN
+    -- Max ID al
+    SELECT COALESCE(MAX(siparis_id), 7000) INTO v_max_id FROM public.siparis;
+
     FOR i IN 1..10 LOOP
-        -- Rastgele Müşteri (8000-8004 mevcut veriden varsayarak, yoksa uydurma)
-        -- seed_data.sql'de musteri insert goremedim ama siparis insert'te 8000-8004 kullanilmis.
-        v_musteri_id := 8000 + floor(random() * 5)::int;
+        v_max_id := v_max_id + 1;
         
-        -- Rastgele Ürün (3012-3016)
+        -- Veri Hazırlığı
+        v_musteri_id := 9000 + floor(random() * 5)::int; -- 9000-9004 arası
         v_urun_id := 3012 + floor(random() * 5)::int;
-        
-        -- Sipariş Tarihi: Son 7 gün içinde
-        v_siparis_tarihi := CURRENT_DATE - (floor(random() * 7) || ' days')::interval;
-        
-        -- Teslim Tarihi: Gelecek 15-45 gün içinde
-        v_teslim_tarihi := CURRENT_DATE + (15 + floor(random() * 30) || ' days')::interval;
-        
-        -- Rastgele Durum
-        v_durum := v_durumlar[1 + floor(random() * array_length(v_durumlar, 1))::int];
-        
-        -- Yeni ID oluştur (Max ID + 1 veya Sequence)
-        -- Not: Identity column varsa direkt insert edilebilir ama burada manuel id verelim çakışmasın diye max'tan gidelim.
-        SELECT COALESCE(MAX(siparis_id), 7000) + 1 INTO v_siparis_id FROM public.siparis;
-        
+        v_miktar := floor(random() * 5 + 1)::int; -- 1-5 arası miktar
+        v_kaynak := v_kaynaklar[1 + floor(random() * array_length(v_kaynaklar, 1))::int];
+        v_siparis_tarihi := CURRENT_DATE;
+        v_teslim_tarihi := CURRENT_DATE + (10 + floor(random() * 30) || ' days')::interval;
+
         -- Sipariş Ekle
-        INSERT INTO public.siparis (siparis_id, musteri_id, siparis_tarihi, teslim_tarihi, durum, urun_id)
-        VALUES (v_siparis_id, v_musteri_id, v_siparis_tarihi, v_teslim_tarihi, v_durum, v_urun_id);
+        INSERT INTO public.siparis (siparis_id, musteri_id, siparis_tarihi, teslim_tarihi, durum, urun_id, miktar, kaynak)
+        VALUES (v_max_id, v_musteri_id, v_siparis_tarihi, v_teslim_tarihi, 'Beklemede', v_urun_id, v_miktar, v_kaynak);
         
-        -- Maliyet Verisi Ekle
-        v_satis_fiyati := (random() * 5000 + 1000)::decimal(10,2);
-        v_iscilik := (v_satis_fiyati * 0.2)::decimal(10,2); -- %20 işçilik
+        -- Maliyet Ekle
+        v_satis_fiyati := (random() * 5000 + 1000)::decimal(10,2) * v_miktar;
         
         INSERT INTO public.siparis_maliyet (
             siparis_id, 
             hammadde_maliyeti, 
             iscilik_maliyeti, 
-            satis_fiyati
+            satis_fiyati,
+            toplam_maliyet,
+            kar_zarar
         ) VALUES (
-            v_siparis_id,
-            (v_satis_fiyati * 0.4)::decimal(10,2), -- %40 hammadde
-            v_iscilik,
-            v_satis_fiyati
+            v_max_id,
+            (v_satis_fiyati * 0.4)::decimal(10,2),
+            (v_satis_fiyati * 0.2)::decimal(10,2),
+            v_satis_fiyati,
+            (v_satis_fiyati * 0.6)::decimal(10,2),
+            (v_satis_fiyati * 0.4)::decimal(10,2)
         );
         
     END LOOP;
