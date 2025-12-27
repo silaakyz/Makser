@@ -70,7 +70,7 @@ export default function Uretim() {
   const [urunler, setUrunler] = useState<UrunRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [productsLoading, setProductsLoading] = useState(true);
-  const [productsLoading, setProductsLoading] = useState(true);
+
   const [docDialogOpen, setDocDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<UrunRow | null>(null);
   const [docFile, setDocFile] = useState<File | null>(null);
