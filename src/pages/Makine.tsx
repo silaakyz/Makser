@@ -65,31 +65,35 @@ export default function Makine() {
           tur,
           kapasite,
           toplam_calisma_saati,
-          makine_bakim (
-            bakim_tarihi,
-            sonraki_bakim_tarihi
-          )
+          durum,
+          son_bakim_tarihi,
+          sonraki_bakim_tarihi
         `)
         .order("ad");
 
       if (error) throw error;
 
-      // Map to component interface with mocks
+      // Status mapping DB(EN) -> UI(TR)
+      const statusMap: Record<string, 'aktif' | 'boşta' | 'arızalı' | 'bakımda'> = {
+        'active': 'aktif',
+        'idle': 'boşta',
+        'maintenance': 'bakımda',
+        'fault': 'arızalı'
+      };
+
+      // Map to component interface
       const mappedData: MakineData[] = (data || []).map((m: any) => {
-        // Derive maintenance info from joined makine_bakim table
-        const bakimlar = m.makine_bakim || [];
-        // Sort by date desc to get latest
-        bakimlar.sort((a: any, b: any) => new Date(b.bakim_tarihi).getTime() - new Date(a.bakim_tarihi).getTime());
-        const lastMaint = bakimlar[0];
+        // Use mapped status or fallback to active if missing
+        const uiStatus = statusMap[m.durum] || 'aktif';
 
         return {
           id: m.makine_id,
           ad: m.ad,
           tur: m.tur,
           uretim_kapasitesi: parseInt(m.kapasite || '0'),
-          durum: "aktif", // Mock status as schema has no status col
-          son_bakim_tarihi: lastMaint?.bakim_tarihi ? new Date(lastMaint.bakim_tarihi).toISOString().split('T')[0] : null,
-          sonraki_bakim_tarihi: lastMaint?.sonraki_bakim_tarihi ? new Date(lastMaint.sonraki_bakim_tarihi).toISOString().split('T')[0] : null,
+          durum: uiStatus,
+          son_bakim_tarihi: m.son_bakim_tarihi || null,
+          sonraki_bakim_tarihi: m.sonraki_bakim_tarihi || null,
         }
       });
 
