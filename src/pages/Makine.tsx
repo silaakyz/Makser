@@ -106,23 +106,32 @@ export default function Makine() {
     try {
       setUpdating(makineId);
 
-      setUpdating(makineId);
+      // Map TR UI status to DB EN status
+      const dbStatusMap: Record<string, string> = {
+        'aktif': 'active',
+        'boşta': 'idle',
+        'arızalı': 'fault',
+        'bakımda': 'maintenance'
+      };
 
-      // Feature disabled: 'durum' column does not exist in 'makine' table
-      // const { error } = await supabase
-      //   .from('makine')
-      //   .update({ durum: yeniDurum })
-      //   .eq('makine_id', makineId);
+      const dbStatus = dbStatusMap[yeniDurum] || 'idle';
 
-      // Mock delay
-      await new Promise(r => setTimeout(r, 500));
-      // if (error) throw error;
+      const updates: any = { durum: dbStatus };
 
-      toast.info("Bu özellik veritabanı şema kısıtlaması nedeniyle şu an devre dışıdır.");
-      return; // Exit
+      // If setting to maintenance, update last maintenance date
+      if (dbStatus === 'maintenance') {
+        updates.son_bakim_tarihi = new Date().toISOString().split('T')[0];
+      }
 
-      // toast.success('Makine durumu güncellendi');
-      // fetchMakineler();
+      const { error } = await supabase
+        .from('makine')
+        .update(updates)
+        .eq('makine_id', makineId);
+
+      if (error) throw error;
+
+      toast.success('Makine durumu güncellendi');
+      fetchMakineler();
     } catch (error: any) {
       console.error('Makine durumu güncellenirken hata:', error);
       toast.error('Makine durumu güncellenemedi: ' + (error.message || 'Bilinmeyen hata'));
