@@ -29,6 +29,7 @@ interface UretimRow {
   id: string;
   hedef_adet: number;
   uretilen_adet: number;
+  fire_adet: number;
   baslangic_zamani: string;
   bitis_zamani: string | null;
   durum: string;
@@ -81,56 +82,48 @@ export default function Uretim() {
   const fetchProductionData = useCallback(async () => {
     try {
       setLoading(true);
-      // Removed date filter to show all data
-      // const today = new Date();
-      // const start = new Date();
-      // start.setDate(today.getDate() - 6);
 
-      // Using correct table 'uretim_kayit' and columns
-      // Note: 'durum' is derived from bitis_zamani
       const [{ data: uData, error: uError }, { data: mData, error: mError }] =
         await Promise.all([
           supabase
             .from("uretim_kayit")
             .select(
               `uretim_id, baslama_zamani, bitis_zamani, makine_id, urun_id,
+               hedef_adet, uretilen_adet, fire_adet,
                urun(ad),
                makine(ad)`
             )
-            .order('baslama_zamani', { ascending: false }), // Order by newest first
-          // .gte("baslama_zamani", start.toISOString()), // Removed filter
+            .order('baslama_zamani', { ascending: false }),
           supabase.from("makine").select("makine_id, ad, kapasite"),
         ]);
 
       if (uError) throw uError;
       if (mError) throw mError;
 
-      // Map response to match component state interface
       const uretimMapped = (uData || []).map((item: any) => ({
         id: item.uretim_id,
-        hedef_adet: item.hedef_adet || 100, // Default if null
+        hedef_adet: item.hedef_adet || 0,
         uretilen_adet: item.uretilen_adet || 0,
-        baslangic_zamani: item.baslama_zamani, // Map to component expected name
+        fire_adet: item.fire_adet || 0,
+        baslangic_zamani: item.baslama_zamani,
         bitis_zamani: item.bitis_zamani,
-        durum: item.bitis_zamani ? "tamamlandi" : "devam_ediyor", // Derived status
+        durum: item.bitis_zamani ? "tamamlandi" : "devam_ediyor",
         makine_id: item.makine_id,
         urun_id: item.urun_id,
         urun: item.urun,
         makine: item.makine
       }));
 
-      // Map machine response
       const machineMapped = (mData || []).map((item: any) => ({
         id: item.makine_id,
         ad: item.ad,
-        uretim_kapasitesi: parseInt(item.kapasite || '0') // Map 'kapasite' to 'uretim_kapasitesi'
+        uretim_kapasitesi: parseInt(item.kapasite || '0')
       }));
 
       setUretimler(uretimMapped);
       setMakineler(machineMapped);
     } catch (error: any) {
       console.error("Üretim verileri yüklenirken hata:", error);
-      // toast.error("Üretim verileri yüklenemedi"); // Suppress error toast to avoid alarming user if partial fail
     } finally {
       setLoading(false);
     }
@@ -150,13 +143,11 @@ export default function Uretim() {
 
       if (error) throw error;
 
-      // Map sparse data to full UrunRow interface
       const productsMapped: UrunRow[] = (data || []).map((item: any) => ({
-        id: item.urun_id || item.id, // Support correct id field
+        id: item.urun_id || item.id,
         ad: item.ad,
         tur: item.tur || 'Standart',
         satis_fiyati: item.satis_fiyati || 0,
-        // Mock missing fields
         stok_miktari: 0,
         kritik_stok_seviyesi: 10,
         en: null,
@@ -166,14 +157,13 @@ export default function Uretim() {
         agirlik: null,
         max_basinc: null,
         max_sicaklik: null,
-        resim_url: null,
-        teknik_dokuman_url: null
+        resim_url: item.resim_url,
+        teknik_dokuman_url: item.teknik_dokuman_url
       }));
 
       setUrunler(productsMapped);
     } catch (error: any) {
       console.error("Ürünler yüklenirken hata:", error);
-      // toast.error("Kazan ürünleri yüklenemedi");
     } finally {
       setProductsLoading(false);
     }
@@ -218,7 +208,7 @@ export default function Uretim() {
       const { error: updateError } = await supabase
         .from("urun")
         .update({ teknik_dokuman_url: publicUrl })
-        .eq("id", selectedProduct.id);
+        .eq("urun_id", selectedProduct.id);
 
       if (updateError) throw updateError;
 
@@ -251,9 +241,19 @@ export default function Uretim() {
     () => uretimler.reduce((sum, u) => sum + (u.uretilen_adet || 0), 0),
     [uretimler]
   );
+  const toplamFire = useMemo(
+    () => uretimler.reduce((sum: number, u: any) => sum + (u.fire_adet || 0), 0),
+    [uretimler]
+  );
 
-  const uretimVerimlilik = toplamHedef > 0 ? Math.round((toplamUretilen / toplamHedef) * 100) : 0;
-  const oeeSkoru = uretimVerimlilik; // Basit yaklaşım: şimdilik aynı
+  // OEE CALCULATIONS
+  const availabilityRate = 0.85; // Varsayılan: %85
+  const performanceRate = toplamHedef > 0 ? (toplamUretilen / toplamHedef) : 0;
+  const qualityRate = toplamUretilen > 0 ? ((toplamUretilen - toplamFire) / toplamUretilen) : 1;
+
+  const oeeRaw = availabilityRate * performanceRate * qualityRate;
+  const oeeSkoru = Math.round(oeeRaw * 100);
+  const uretimVerimlilik = Math.round(performanceRate * 100);
 
   const ortalamaSure = useMemo(() => {
     const completed = uretimler.filter(
@@ -298,11 +298,11 @@ export default function Uretim() {
 
     uretimler.forEach((u) => {
       if (!u.makine_id) return;
-      const qty = u.uretilen_adet || u.hedef_adet || 0;
+      const qty = u.uretilen_adet || 0;
       producedByMachine[u.makine_id] = (producedByMachine[u.makine_id] || 0) + qty;
     });
 
-    const hoursPerMachine = 8 * 7; // Son 7 gün, günde 8 saat varsayımı
+    const hoursPerMachine = 8 * 7;
 
     return makineler.map((m) => {
       const produced = producedByMachine[m.id] || 0;
@@ -503,28 +503,28 @@ export default function Uretim() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Kullanılabilirlik</span>
-                  <span className="text-lg font-bold text-foreground">85%</span>
+                  <span className="text-lg font-bold text-foreground">{(availabilityRate * 100).toFixed(0)}%</span>
                 </div>
                 <div className="h-2 bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-success" style={{ width: "85%" }} />
+                  <div className="h-full bg-success" style={{ width: `${availabilityRate * 100}%` }} />
                 </div>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Performans</span>
-                  <span className="text-lg font-bold text-foreground">78%</span>
+                  <span className="text-lg font-bold text-foreground">{(performanceRate * 100).toFixed(0)}%</span>
                 </div>
                 <div className="h-2 bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-warning" style={{ width: "78%" }} />
+                  <div className="h-full bg-warning" style={{ width: `${performanceRate * 100}%` }} />
                 </div>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Kalite</span>
-                  <span className="text-lg font-bold text-foreground">92%</span>
+                  <span className="text-lg font-bold text-foreground">{(qualityRate * 100).toFixed(0)}%</span>
                 </div>
                 <div className="h-2 bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-primary" style={{ width: "92%" }} />
+                  <div className="h-full bg-primary" style={{ width: `${qualityRate * 100}%` }} />
                 </div>
               </div>
             </div>
