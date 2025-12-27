@@ -80,6 +80,7 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-gradient-to-br from-[#0A1128] to-[#122044] text-foreground min-h-screen;
+    @apply bg-gradient-to-br from-[#0A1128] to-[#122044] text-foreground min-h-screen font-sans;
+    font-family: 'Inter', sans-serif;
   }
 }

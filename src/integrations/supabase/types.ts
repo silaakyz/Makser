@@ -7,463 +7,525 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
-  }
   public: {
     Tables: {
-      ariza_kaydi: {
-        Row: {
-          aciklama: string | null
-          baslangic_tarihi: string
-          bitis_tarihi: string | null
-          created_at: string | null
-          id: string
-          makine_id: string | null
-          maliyet: number | null
-          sure_saat: number | null
-        }
-        Insert: {
-          aciklama?: string | null
-          baslangic_tarihi: string
-          bitis_tarihi?: string | null
-          created_at?: string | null
-          id?: string
-          makine_id?: string | null
-          maliyet?: number | null
-          sure_saat?: number | null
-        }
-        Update: {
-          aciklama?: string | null
-          baslangic_tarihi?: string
-          bitis_tarihi?: string | null
-          created_at?: string | null
-          id?: string
-          makine_id?: string | null
-          maliyet?: number | null
-          sure_saat?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ariza_kaydi_makine_id_fkey"
-            columns: ["makine_id"]
-            isOneToOne: false
-            referencedRelation: "makine"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      bakim_kaydi: {
-        Row: {
-          aciklama: string | null
-          bakim_tarihi: string
-          bakim_turu: string
-          created_at: string | null
-          id: string
-          makine_id: string | null
-          maliyet: number | null
-        }
-        Insert: {
-          aciklama?: string | null
-          bakim_tarihi: string
-          bakim_turu: string
-          created_at?: string | null
-          id?: string
-          makine_id?: string | null
-          maliyet?: number | null
-        }
-        Update: {
-          aciklama?: string | null
-          bakim_tarihi?: string
-          bakim_turu?: string
-          created_at?: string | null
-          id?: string
-          makine_id?: string | null
-          maliyet?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "bakim_kaydi_makine_id_fkey"
-            columns: ["makine_id"]
-            isOneToOne: false
-            referencedRelation: "makine"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       hammadde: {
         Row: {
-          ad: string
-          birim: string
-          birim_fiyat: number
-          created_at: string | null
-          id: string
-          kritik_stok_seviyesi: number | null
-          stok_miktari: number
-          tuketim_hizi: number | null
-          updated_at: string | null
+          hammadde_id: number
+          stok_adi: string | null
+          satis_fiyati: string | null
+          alis_fiyati: string | null
+          kalan_miktar: string | null
+          birim: string | null
+          kdv_satis: number | null
+          kdv_alis: number | null
+          grubu: string | null
+          ara_grubu: string | null
+          aktif: string | null
+          bilgi_kodu: number | null
+          kritik_stok: string | null
+          tedarikci_id: number
         }
         Insert: {
-          ad: string
-          birim?: string
-          birim_fiyat: number
-          created_at?: string | null
-          id?: string
-          kritik_stok_seviyesi?: number | null
-          stok_miktari?: number
-          tuketim_hizi?: number | null
-          updated_at?: string | null
+          hammadde_id: number
+          stok_adi?: string | null
+          satis_fiyati?: string | null
+          alis_fiyati?: string | null
+          kalan_miktar?: string | null
+          birim?: string | null
+          kdv_satis?: number | null
+          kdv_alis?: number | null
+          grubu?: string | null
+          ara_grubu?: string | null
+          aktif?: string | null
+          bilgi_kodu?: number | null
+          kritik_stok?: string | null
+          tedarikci_id: number
         }
         Update: {
-          ad?: string
-          birim?: string
-          birim_fiyat?: number
-          created_at?: string | null
-          id?: string
-          kritik_stok_seviyesi?: number | null
-          stok_miktari?: number
-          tuketim_hizi?: number | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      hammadde_giris: {
-        Row: {
-          birim_fiyat: number
-          created_at: string | null
-          giris_tarihi: string
-          hammadde_id: string | null
-          id: string
-          miktar: number
-          tedarikci: string | null
-          toplam_tutar: number
-        }
-        Insert: {
-          birim_fiyat: number
-          created_at?: string | null
-          giris_tarihi?: string
-          hammadde_id?: string | null
-          id?: string
-          miktar: number
-          tedarikci?: string | null
-          toplam_tutar: number
-        }
-        Update: {
-          birim_fiyat?: number
-          created_at?: string | null
-          giris_tarihi?: string
-          hammadde_id?: string | null
-          id?: string
-          miktar?: number
-          tedarikci?: string | null
-          toplam_tutar?: number
+          hammadde_id?: number
+          stok_adi?: string | null
+          satis_fiyati?: string | null
+          alis_fiyati?: string | null
+          kalan_miktar?: string | null
+          birim?: string | null
+          kdv_satis?: number | null
+          kdv_alis?: number | null
+          grubu?: string | null
+          ara_grubu?: string | null
+          aktif?: string | null
+          bilgi_kodu?: number | null
+          kritik_stok?: string | null
+          tedarikci_id?: number
         }
         Relationships: [
           {
-            foreignKeyName: "hammadde_giris_hammadde_id_fkey"
+            foreignKeyName: "hammadde_tedarikci_id_fkey"
+            columns: ["tedarikci_id"]
+            isOneToOne: false
+            referencedRelation: "tedarikciler"
+            referencedColumns: ["tedarikci_id"]
+          }
+        ]
+      }
+      hammadde_hareket: {
+        Row: {
+          hareket_id: number
+          hammadde_id: number | null
+          hareket_turu: string | null
+          miktar: number | null
+          tarih: string | null
+        }
+        Insert: {
+          hareket_id?: never
+          hammadde_id?: number | null
+          hareket_turu?: string | null
+          miktar?: number | null
+          tarih?: string | null
+        }
+        Update: {
+          hareket_id?: never
+          hammadde_id?: number | null
+          hareket_turu?: string | null
+          miktar?: number | null
+          tarih?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hammadde_hareket_hammadde_id_fkey"
             columns: ["hammadde_id"]
             isOneToOne: false
             referencedRelation: "hammadde"
-            referencedColumns: ["id"]
-          },
+            referencedColumns: ["hammadde_id"]
+          }
         ]
       }
       makine: {
         Row: {
-          ad: string
-          created_at: string | null
-          durum: string
-          id: string
-          son_bakim_tarihi: string | null
-          sonraki_bakim_tarihi: string | null
-          tur: string
-          updated_at: string | null
-          uretim_kapasitesi: number
+          makine_id: number
+          ad: string | null
+          tur: string | null
+          kapasite: string | null
+          toplam_calisma_saati: number | null
         }
         Insert: {
-          ad: string
-          created_at?: string | null
-          durum?: string
-          id?: string
-          son_bakim_tarihi?: string | null
-          sonraki_bakim_tarihi?: string | null
-          tur: string
-          updated_at?: string | null
-          uretim_kapasitesi: number
+          makine_id: number
+          ad?: string | null
+          tur?: string | null
+          kapasite?: string | null
+          toplam_calisma_saati?: number | null
         }
         Update: {
-          ad?: string
-          created_at?: string | null
-          durum?: string
-          id?: string
-          son_bakim_tarihi?: string | null
-          sonraki_bakim_tarihi?: string | null
-          tur?: string
-          updated_at?: string | null
-          uretim_kapasitesi?: number
+          makine_id?: number
+          ad?: string | null
+          tur?: string | null
+          kapasite?: string | null
+          toplam_calisma_saati?: number | null
         }
         Relationships: []
       }
-      profiles: {
+      makine_ariza: {
         Row: {
-          ad: string | null
-          created_at: string | null
-          email: string | null
-          id: string
-          soyad: string | null
-          updated_at: string | null
+          ariza_id: number
+          makine_id: number
+          personel_id: number
+          maliyet: number | null
+          ariza_turu: string | null
         }
         Insert: {
-          ad?: string | null
-          created_at?: string | null
-          email?: string | null
-          id: string
-          soyad?: string | null
-          updated_at?: string | null
+          ariza_id: number
+          makine_id: number
+          personel_id: number
+          maliyet?: number | null
+          ariza_turu?: string | null
         }
         Update: {
+          ariza_id?: number
+          makine_id?: number
+          personel_id?: number
+          maliyet?: number | null
+          ariza_turu?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "makine_ariza_makine_id_fkey"
+            columns: ["makine_id"]
+            isOneToOne: false
+            referencedRelation: "makine"
+            referencedColumns: ["makine_id"]
+          },
+          {
+            foreignKeyName: "makine_ariza_personel_id_fkey"
+            columns: ["personel_id"]
+            isOneToOne: false
+            referencedRelation: "personel"
+            referencedColumns: ["personel_id"]
+          }
+        ]
+      }
+      makine_bakim: {
+        Row: {
+          bakim_id: number
+          makine_id: number
+          bakim_tarihi: string | null
+          bakim_turu: string | null
+          maliyet: number | null
+          sonraki_bakim_tarihi: string | null
+        }
+        Insert: {
+          bakim_id: number
+          makine_id: number
+          bakim_tarihi?: string | null
+          bakim_turu?: string | null
+          maliyet?: number | null
+          sonraki_bakim_tarihi?: string | null
+        }
+        Update: {
+          bakim_id?: number
+          makine_id?: number
+          bakim_tarihi?: string | null
+          bakim_turu?: string | null
+          maliyet?: number | null
+          sonraki_bakim_tarihi?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "makine_bakim_makine_id_fkey"
+            columns: ["makine_id"]
+            isOneToOne: false
+            referencedRelation: "makine"
+            referencedColumns: ["makine_id"]
+          }
+        ]
+      }
+      musteriler: {
+        Row: {
+          musteri_id: number
+          isim: string | null
+          soyisim: string | null
+          cari_kodu: string | null
+          telefon: string | null
+          il: string | null
+          ilce: string | null
+          adres: string | null
+          aktif: string | null
+        }
+        Insert: {
+          musteri_id: number
+          isim?: string | null
+          soyisim?: string | null
+          cari_kodu?: string | null
+          telefon?: string | null
+          il?: string | null
+          ilce?: string | null
+          adres?: string | null
+          aktif?: string | null
+        }
+        Update: {
+          musteri_id?: number
+          isim?: string | null
+          soyisim?: string | null
+          cari_kodu?: string | null
+          telefon?: string | null
+          il?: string | null
+          ilce?: string | null
+          adres?: string | null
+          aktif?: string | null
+        }
+        Relationships: []
+      }
+      personel: {
+        Row: {
+          personel_id: number
+          ad: string | null
+          soyad: string | null
+          unvan: string | null
+          mail: string | null
+          sifre: string | null
+        }
+        Insert: {
+          personel_id?: number
           ad?: string | null
-          created_at?: string | null
-          email?: string | null
-          id?: string
           soyad?: string | null
-          updated_at?: string | null
+          unvan?: string | null
+          mail?: string | null
+          sifre?: string | null
+        }
+        Update: {
+          personel_id?: number
+          ad?: string | null
+          soyad?: string | null
+          unvan?: string | null
+          mail?: string | null
+          sifre?: string | null
         }
         Relationships: []
       }
       siparis: {
         Row: {
-          created_at: string | null
-          durum: string
-          id: string
-          kaynak: string
-          miktar: number
-          musteri: string
-          siparis_maliyeti: number | null
-          siparis_tarihi: string
+          siparis_id: number
+          musteri_id: number | null
+          siparis_tarihi: string | null
           teslim_tarihi: string | null
-          updated_at: string | null
-          uretim_id: string | null
-          urun_id: string | null
+          durum: string | null
+          urun_id: number
         }
         Insert: {
-          created_at?: string | null
-          durum?: string
-          id?: string
-          kaynak?: string
-          miktar: number
-          musteri: string
-          siparis_maliyeti?: number | null
-          siparis_tarihi?: string
+          siparis_id: number
+          musteri_id?: number | null
+          siparis_tarihi?: string | null
           teslim_tarihi?: string | null
-          updated_at?: string | null
-          uretim_id?: string | null
-          urun_id?: string | null
+          durum?: string | null
+          urun_id: number
         }
         Update: {
-          created_at?: string | null
-          durum?: string
-          id?: string
-          kaynak?: string
-          miktar?: number
-          musteri?: string
-          siparis_maliyeti?: number | null
-          siparis_tarihi?: string
+          siparis_id?: number
+          musteri_id?: number | null
+          siparis_tarihi?: string | null
           teslim_tarihi?: string | null
-          updated_at?: string | null
-          uretim_id?: string | null
-          urun_id?: string | null
+          durum?: string | null
+          urun_id?: number
         }
         Relationships: [
           {
-            foreignKeyName: "siparis_uretim_id_fkey"
-            columns: ["uretim_id"]
+            foreignKeyName: "siparis_musteri_id_fkey"
+            columns: ["musteri_id"]
             isOneToOne: false
-            referencedRelation: "uretim"
-            referencedColumns: ["id"]
+            referencedRelation: "musteriler"
+            referencedColumns: ["musteri_id"]
           },
           {
             foreignKeyName: "siparis_urun_id_fkey"
             columns: ["urun_id"]
             isOneToOne: false
             referencedRelation: "urun"
-            referencedColumns: ["id"]
-          },
+            referencedColumns: ["urun_id"]
+          }
         ]
       }
-      uretim: {
+      siparis_maliyet: {
         Row: {
-          baslangic_zamani: string
-          bitis_zamani: string | null
-          calisan_personel: string | null
-          created_at: string | null
-          durum: string
-          hedef_adet: number
-          id: string
-          makine_id: string | null
-          updated_at: string | null
-          uretilen_adet: number | null
-          urun_id: string | null
+          siparis_maliyet_id: number
+          siparis_id: number
+          hammadde_maliyeti: string | null
+          iscilik_maliyeti: number | null
+          toplam_maliyet: string | null
+          satis_fiyati: string | null
+          kar_zarar: string | null
         }
         Insert: {
-          baslangic_zamani: string
-          bitis_zamani?: string | null
-          calisan_personel?: string | null
-          created_at?: string | null
-          durum?: string
-          hedef_adet: number
-          id?: string
-          makine_id?: string | null
-          updated_at?: string | null
-          uretilen_adet?: number | null
-          urun_id?: string | null
+          siparis_maliyet_id: number
+          siparis_id: number
+          hammadde_maliyeti?: string | null
+          iscilik_maliyeti?: number | null
+          toplam_maliyet?: string | null
+          satis_fiyati?: string | null
+          kar_zarar?: string | null
         }
         Update: {
-          baslangic_zamani?: string
-          bitis_zamani?: string | null
-          calisan_personel?: string | null
-          created_at?: string | null
-          durum?: string
-          hedef_adet?: number
-          id?: string
-          makine_id?: string | null
-          updated_at?: string | null
-          uretilen_adet?: number | null
-          urun_id?: string | null
+          siparis_maliyet_id?: number
+          siparis_id?: number
+          hammadde_maliyeti?: string | null
+          iscilik_maliyeti?: number | null
+          toplam_maliyet?: string | null
+          satis_fiyati?: string | null
+          kar_zarar?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "uretim_makine_id_fkey"
+            foreignKeyName: "siparis_maliyet_siparis_id_fkey"
+            columns: ["siparis_id"]
+            isOneToOne: true
+            referencedRelation: "siparis"
+            referencedColumns: ["siparis_id"]
+          }
+        ]
+      }
+      tedarikciler: {
+        Row: {
+          tedarikci_id: number
+          firma: string | null
+          ad: string | null
+          soyad: string | null
+          cari_kodu: string | null
+          telefon: string | null
+          il: string | null
+          ilce: string | null
+          adres: string | null
+          grubu: string | null
+          aktif: string | null
+        }
+        Insert: {
+          tedarikci_id: number
+          firma?: string | null
+          ad?: string | null
+          soyad?: string | null
+          cari_kodu?: string | null
+          telefon?: string | null
+          il?: string | null
+          ilce?: string | null
+          adres?: string | null
+          grubu?: string | null
+          aktif?: string | null
+        }
+        Update: {
+          tedarikci_id?: number
+          firma?: string | null
+          ad?: string | null
+          soyad?: string | null
+          cari_kodu?: string | null
+          telefon?: string | null
+          il?: string | null
+          ilce?: string | null
+          adres?: string | null
+          grubu?: string | null
+          aktif?: string | null
+        }
+        Relationships: []
+      }
+      uretim_kayit: {
+        Row: {
+          uretim_id: number
+          urun_id: number
+          makine_id: number
+          baslama_zamani: string | null
+          bitis_zamani: string | null
+        }
+        Insert: {
+          uretim_id: number
+          urun_id: number
+          makine_id?: never
+          baslama_zamani?: string | null
+          bitis_zamani?: string | null
+        }
+        Update: {
+          uretim_id?: number
+          urun_id?: number
+          makine_id?: never
+          baslama_zamani?: string | null
+          bitis_zamani?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "uretim_kayit_makine_id_fkey"
             columns: ["makine_id"]
             isOneToOne: false
             referencedRelation: "makine"
-            referencedColumns: ["id"]
+            referencedColumns: ["makine_id"]
           },
           {
-            foreignKeyName: "uretim_urun_id_fkey"
+            foreignKeyName: "uretim_kayit_urun_id_fkey"
             columns: ["urun_id"]
             isOneToOne: false
             referencedRelation: "urun"
-            referencedColumns: ["id"]
-          },
+            referencedColumns: ["urun_id"]
+          }
         ]
       }
       urun: {
         Row: {
-          ad: string
-          agirlik: number | null
-          boy: number | null
-          created_at: string | null
-          en: number | null
-          hacim: number | null
-          id: string
-          kritik_stok_seviyesi: number | null
-          max_basinc: number | null
-          max_sicaklik: number | null
-          resim_url: string | null
-          satis_fiyati: number
-          stok_miktari: number
-          teknik_dokuman_url: string | null
-          tur: string
-          updated_at: string | null
-          yukseklik: number | null
+          urun_id: number
+          ad: string | null
+          tur: string | null
+          satis_fiyati: number | null
         }
         Insert: {
-          ad: string
-          agirlik?: number | null
-          boy?: number | null
-          created_at?: string | null
-          en?: number | null
-          hacim?: number | null
-          id?: string
-          kritik_stok_seviyesi?: number | null
-          max_basinc?: number | null
-          max_sicaklik?: number | null
-          resim_url?: string | null
-          satis_fiyati: number
-          stok_miktari?: number
-          teknik_dokuman_url?: string | null
-          tur: string
-          updated_at?: string | null
-          yukseklik?: number | null
+          urun_id?: never
+          ad?: string | null
+          tur?: string | null
+          satis_fiyati?: number | null
         }
         Update: {
-          ad?: string
-          agirlik?: number | null
-          boy?: number | null
-          created_at?: string | null
-          en?: number | null
-          hacim?: number | null
-          id?: string
-          kritik_stok_seviyesi?: number | null
-          max_basinc?: number | null
-          max_sicaklik?: number | null
-          resim_url?: string | null
-          satis_fiyati?: number
-          stok_miktari?: number
-          teknik_dokuman_url?: string | null
-          tur?: string
-          updated_at?: string | null
-          yukseklik?: number | null
+          urun_id?: never
+          ad?: string | null
+          tur?: string | null
+          satis_fiyati?: number | null
         }
         Relationships: []
       }
-      urun_hammadde: {
+      urun_recetesi: {
         Row: {
-          hammadde_id: string | null
-          id: string
-          miktar: number
-          urun_id: string | null
+          recete_id: number
+          urun_id: number
+          hammadde_id: number
+          miktar: number | null
         }
         Insert: {
-          hammadde_id?: string | null
-          id?: string
-          miktar: number
-          urun_id?: string | null
+          recete_id?: never
+          urun_id: number
+          hammadde_id: number
+          miktar?: number | null
         }
         Update: {
-          hammadde_id?: string | null
-          id?: string
-          miktar?: number
-          urun_id?: string | null
+          recete_id?: never
+          urun_id?: number
+          hammadde_id?: number
+          miktar?: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "urun_hammadde_hammadde_id_fkey"
+            foreignKeyName: "urun_recetesi_hammadde_id_fkey"
             columns: ["hammadde_id"]
             isOneToOne: false
             referencedRelation: "hammadde"
-            referencedColumns: ["id"]
+            referencedColumns: ["hammadde_id"]
           },
           {
-            foreignKeyName: "urun_hammadde_urun_id_fkey"
+            foreignKeyName: "urun_recetesi_urun_id_fkey"
             columns: ["urun_id"]
             isOneToOne: false
             referencedRelation: "urun"
-            referencedColumns: ["id"]
-          },
+            referencedColumns: ["urun_id"]
+          }
+        ]
+      }
+      urun_stok: {
+        Row: {
+          urun_stok_id: number
+          urun_id: number | null
+          miktar: number | null
+          son_guncelleme: string | null
+        }
+        Insert: {
+          urun_stok_id: number
+          urun_id?: number | null
+          miktar?: number | null
+          son_guncelleme?: string | null
+        }
+        Update: {
+          urun_stok_id?: number
+          urun_id?: number | null
+          miktar?: number | null
+          son_guncelleme?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "urun_stok_urun_id_fkey"
+            columns: ["urun_id"]
+            isOneToOne: false
+            referencedRelation: "urun"
+            referencedColumns: ["urun_id"]
+          }
         ]
       }
       user_roles: {
         Row: {
+          id: number
+          user_id: string | null
+          role: string
           created_at: string | null
-          id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
         }
         Insert: {
+          id?: never
+          user_id?: string | null
+          role: string
           created_at?: string | null
-          id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
         }
         Update: {
+          id?: never
+          user_id?: string | null
+          role?: string
           created_at?: string | null
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
         }
         Relationships: []
       }
@@ -472,24 +534,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
+      [_ in never]: never
     }
     Enums: {
       app_role:
-        | "sirket_sahibi"
-        | "genel_mudur"
-        | "muhasebe"
-        | "uretim_sefi"
-        | "teknisyen"
-        | "servis_personeli"
-        | "saha_montaj"
-        | "uretim_personeli"
+      | "sirket_sahibi"
+      | "genel_mudur"
+      | "muhasebe"
+      | "uretim_sefi"
+      | "teknisyen"
+      | "servis_personeli"
+      | "saha_montaj"
+      | "uretim_personeli"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -497,136 +553,87 @@ export type Database = {
   }
 }
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+// Helpers
+type DatabaseWithoutInternals = Omit<Database, "Public">
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type DefaultSchema = Database[Extract<keyof Database, "public">]
 
 export type Tables<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+  PublicTableNameOrOptions extends
+  | keyof (Database["public"]["Tables"] & Database["public"]["Views"])
+  | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+  ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
+    Database[PublicTableNameOrOptions["schema"]]["Views"])
+  : never = never
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
+    Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
-    ? R
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R
-      }
-      ? R
-      : never
-    : never
+  ? R
+  : never
+  : PublicTableNameOrOptions extends keyof (Database["public"]["Tables"] &
+    Database["public"]["Views"])
+  ? (Database["public"]["Tables"] &
+    Database["public"]["Views"])[PublicTableNameOrOptions] extends {
+      Row: infer R
+    }
+  ? R
+  : never
+  : never
 
 export type TablesInsert<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+  PublicTableNameOrOptions extends
+  | keyof Database["public"]["Tables"]
+  | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+  ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  : never = never
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+    Insert: infer I
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I
-    }
-    ? I
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I
-      }
-      ? I
-      : never
-    : never
+  ? I
+  : never
+  : PublicTableNameOrOptions extends keyof Database["public"]["Tables"]
+  ? Database["public"]["Tables"][PublicTableNameOrOptions] extends {
+    Insert: infer I
+  }
+  ? I
+  : never
+  : never
 
 export type TablesUpdate<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+  PublicTableNameOrOptions extends
+  | keyof Database["public"]["Tables"]
+  | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+  ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  : never = never
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+    Update: infer U
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U
-    }
-    ? U
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U
-      }
-      ? U
-      : never
-    : never
+  ? U
+  : never
+  : PublicTableNameOrOptions extends keyof Database["public"]["Tables"]
+  ? Database["public"]["Tables"][PublicTableNameOrOptions] extends {
+    Update: infer U
+  }
+  ? U
+  : never
+  : never
 
 export type Enums<
-  DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
-> = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never
-
-export type CompositeTypes<
-  PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
-> = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
-
-export const Constants = {
-  public: {
-    Enums: {
-      app_role: [
-        "sirket_sahibi",
-        "genel_mudur",
-        "muhasebe",
-        "uretim_sefi",
-        "teknisyen",
-        "servis_personeli",
-        "saha_montaj",
-        "uretim_personeli",
-      ],
-    },
-  },
-} as const
+  PublicEnumNameOrOptions extends
+  | keyof Database["public"]["Enums"]
+  | { schema: keyof Database },
+  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
+  ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
+  : never = never
+> = PublicEnumNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : PublicEnumNameOrOptions extends keyof Database["public"]["Enums"]
+  ? Database["public"]["Enums"][PublicEnumNameOrOptions]
+  : never

@@ -16,6 +16,7 @@ import Finansal from "./pages/Finansal";
 import Uyarilar from "./pages/Uyarilar";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
+import Debug from "./pages/Debug";
 
 // Yeni üretim modülü import
 import ProductionModule from "./modules/Production/ProductionModule";
@@ -32,74 +33,75 @@ const App = () => (
           <Routes>
             {/* Auth page - public */}
             <Route path="/auth" element={<Auth />} />
+            <Route path="/debug" element={<Debug />} />
 
             {/* Protected routes */}
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            
-            <Route 
-              path="/uretim" 
+
+            <Route
+              path="/uretim"
               element={
                 <ProtectedRoute allowedRoles={['sirket_sahibi', 'genel_mudur', 'uretim_sefi', 'uretim_personeli']}>
                   <Uretim />
                 </ProtectedRoute>
-              } 
+              }
             />
-            
-            <Route 
-              path="/yeni-uretim" 
+
+            <Route
+              path="/yeni-uretim"
               element={
                 <ProtectedRoute allowedRoles={['sirket_sahibi', 'genel_mudur', 'uretim_sefi', 'uretim_personeli']}>
                   <ProductionModule />
                 </ProtectedRoute>
-              } 
+              }
             />
-            
-            <Route 
-              path="/makine" 
+
+            <Route
+              path="/makine"
               element={
                 <ProtectedRoute allowedRoles={['sirket_sahibi', 'genel_mudur', 'uretim_sefi', 'teknisyen', 'servis_personeli']}>
                   <Makine />
                 </ProtectedRoute>
-              } 
+              }
             />
-            
-            <Route 
-              path="/stoklar" 
+
+            <Route
+              path="/stoklar"
               element={
                 <ProtectedRoute allowedRoles={['sirket_sahibi', 'genel_mudur', 'muhasebe', 'uretim_sefi']}>
                   <Stoklar />
                 </ProtectedRoute>
-              } 
+              }
             />
-            
-            <Route 
-              path="/siparisler" 
+
+            <Route
+              path="/siparisler"
               element={
                 <ProtectedRoute allowedRoles={['sirket_sahibi', 'genel_mudur', 'muhasebe', 'saha_montaj']}>
                   <Siparisler />
                 </ProtectedRoute>
-              } 
+              }
             />
-            
-            <Route 
-              path="/finansal" 
+
+            <Route
+              path="/finansal"
               element={
                 <ProtectedRoute allowedRoles={['sirket_sahibi', 'genel_mudur', 'muhasebe']}>
                   <Finansal />
                 </ProtectedRoute>
-              } 
+              }
             />
-            
-            <Route 
-              path="/uyarilar" 
+
+            <Route
+              path="/uyarilar"
               element={
                 <ProtectedRoute allowedRoles={['sirket_sahibi', 'genel_mudur', 'uretim_sefi', 'teknisyen']}>
                   <Uyarilar />
                 </ProtectedRoute>
-              } 
+              }
             />
-            
-        
+
+
 
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
