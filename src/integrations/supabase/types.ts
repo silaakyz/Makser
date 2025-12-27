@@ -394,14 +394,14 @@ export type Database = {
         Insert: {
           uretim_id: number
           urun_id: number
-          makine_id?: never
+          makine_id?: never // GENERATED ALWAYS AS IDENTITY
           baslama_zamani?: string | null
           bitis_zamani?: string | null
         }
         Update: {
           uretim_id?: number
           urun_id?: number
-          makine_id?: never
+          makine_id?: never // GENERATED ALWAYS AS IDENTITY
           baslama_zamani?: string | null
           bitis_zamani?: string | null
         }
@@ -487,13 +487,13 @@ export type Database = {
           son_guncelleme: string | null
         }
         Insert: {
-          urun_stok_id: number
+          urun_stok_id?: never
           urun_id?: number | null
           miktar?: number | null
           son_guncelleme?: string | null
         }
         Update: {
-          urun_stok_id?: number
+          urun_stok_id?: never
           urun_id?: number | null
           miktar?: number | null
           son_guncelleme?: string | null

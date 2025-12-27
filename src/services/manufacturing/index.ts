@@ -11,34 +11,33 @@ export const productionService = {
 
   async getActiveProductions() {
     const { data, error } = await supabase
-      .from('uretim')
+      .from('uretim_kayit')
       .select(
-        `id,
-         baslangic_zamani,
+        `uretim_id,
+         baslama_zamani,
          bitis_zamani,
-         hedef_adet,
-         uretilen_adet,
-         durum,
-         makine:makine_id(ad),
-         urun:urun_id(ad)`
+         makine:makine(ad),
+         urun:urun(ad)`
       )
-      .eq('durum', 'devam_ediyor')
-      .order('baslangic_zamani', { ascending: true });
+      // .eq('durum', 'devam_ediyor') // Durum column is derived/missing in uretim_kayit
+      .is('bitis_zamani', null) // Equivalent to devam_ediyor
+      .order('baslama_zamani', { ascending: true });
 
     if (error) throw error;
 
     return (data || []).map((row: any) => {
-      const start = row.baslangic_zamani ? new Date(row.baslangic_zamani) : null;
+      const start = row.baslama_zamani ? new Date(row.baslama_zamani) : null;
       const end = row.bitis_zamani ? new Date(row.bitis_zamani) : null;
       const estimated = end || (start ? new Date(start.getTime() + 4 * 60 * 60 * 1000) : null);
 
       return {
-        id: row.id,
+        id: String(row.uretim_id),
         machine: row.makine?.ad || 'Bilinmiyor',
-        status: row.durum,
+        status: end ? 'tamamlandi' : 'devam_ediyor',
         product: row.urun?.ad || 'Bilinmiyor',
         startTime: start ? start.toLocaleString('tr-TR') : '-',
         estimatedEnd: estimated ? estimated.toLocaleString('tr-TR') : '-',
+        progress: 0 // Mocking progress as it is not in valid schema
       };
     });
   },
@@ -46,21 +45,22 @@ export const productionService = {
   async getActiveMachines(): Promise<Machine[]> {
     const { data } = await supabase
       .from('makine')
-      .select('*')
-      .eq('durum', 'aktif');
-    
-    return (data || []).map(m => ({
-      id: m.id,
+      .select('makine_id, ad, kapasite, son_bakim_tarihi')
+      // .eq('durum', 'aktif') // durum col missing
+      .order('ad');
+
+    return (data || []).map((m: any) => ({
+      id: String(m.makine_id),
       name: m.ad,
-      status: (m.durum === 'aktif' ? 'active' : m.durum === 'arızalı' ? 'maintenance' : 'idle') as any,
-      capacity: m.uretim_kapasitesi,
+      status: 'active', // Default to active as status col is missing
+      capacity: parseInt(m.kapasite || '0'),
       currentLoad: 0,
       totalUptime: 0,
       totalDowntime: 0,
       mtbf: 0,
       faults: [],
-      lastMaintenance: m.son_bakim_tarihi || new Date().toISOString().split('T')[0],
-      nextMaintenance: m.sonraki_bakim_tarihi || new Date().toISOString().split('T')[0]
+      lastMaintenance: m.son_bakim_tarihi || '-',
+      nextMaintenance: '-'
     }));
   }
 };
@@ -68,38 +68,38 @@ export const productionService = {
 export const machineService = {
   async getAll(): Promise<Machine[]> {
     const { data } = await supabase.from('makine').select('*');
-    
-    return (data || []).map(m => ({
-      id: m.id,
+
+    return (data || []).map((m: any) => ({
+      id: String(m.makine_id),
       name: m.ad,
-      status: (m.durum === 'aktif' ? 'active' : m.durum === 'arızalı' ? 'maintenance' : 'idle') as any,
-      capacity: m.uretim_kapasitesi,
+      status: 'active', // Defaulting as durum missing
+      capacity: parseInt(m.kapasite || '0'),
       currentLoad: 0,
       totalUptime: 0,
       totalDowntime: 0,
       mtbf: 0,
       faults: [],
-      lastMaintenance: m.son_bakim_tarihi || new Date().toISOString().split('T')[0],
-      nextMaintenance: m.sonraki_bakim_tarihi || new Date().toISOString().split('T')[0]
+      lastMaintenance: m.son_bakim_tarihi || '-',
+      nextMaintenance: m.sonraki_bakim_tarihi || '-'
     }));
   },
 
   async getById(id: string): Promise<Machine> {
-    const { data } = await supabase.from('makine').select('*').eq('id', id).maybeSingle();
+    const { data } = await supabase.from('makine').select('*').eq('makine_id', id).maybeSingle();
     if (!data) throw new Error('Machine not found');
-    
+
     return {
-      id: data.id,
+      id: String(data.makine_id),
       name: data.ad,
-      status: (data.durum === 'aktif' ? 'active' : data.durum === 'arızalı' ? 'maintenance' : 'idle') as any,
-      capacity: data.uretim_kapasitesi,
+      status: 'active',
+      capacity: parseInt(data.kapasite || '0'),
       currentLoad: 0,
       totalUptime: 0,
       totalDowntime: 0,
       mtbf: 0,
       faults: [],
-      lastMaintenance: data.son_bakim_tarihi || new Date().toISOString().split('T')[0],
-      nextMaintenance: data.sonraki_bakim_tarihi || new Date().toISOString().split('T')[0]
+      lastMaintenance: data.son_bakim_tarihi || '-',
+      nextMaintenance: data.sonraki_bakim_tarihi || '-'
     };
   }
 };
@@ -107,43 +107,44 @@ export const machineService = {
 export const stockService = {
   async getRawMaterials(): Promise<RawMaterial[]> {
     const { data } = await supabase.from('hammadde').select('*');
-    
-    return (data || []).map(h => ({
-      id: h.id,
-      code: h.id.substring(0, 8),
-      name: h.ad,
+
+    return (data || []).map((h: any) => ({
+      id: String(h.hammadde_id),
+      code: String(h.hammadde_id).padStart(8, '0'),
+      name: h.stok_adi,
       unit: h.birim,
-      currentStock: h.stok_miktari,
-      minStock: h.kritik_stok_seviyesi,
-      maxStock: h.kritik_stok_seviyesi * 3,
-      costPerUnit: h.birim_fiyat,
+      currentStock: parseFloat(h.kalan_miktar || '0'),
+      minStock: parseFloat(h.kritik_stok || '0'),
+      maxStock: parseFloat(h.kritik_stok || '0') * 3,
+      costPerUnit: parseFloat(h.alis_fiyati || '0'),
       supplier: 'Aktarılan',
-      averageConsumption: h.tuketim_hizi,
-      lastOrderDate: new Date().toISOString().split('T')[0]
+      averageConsumption: 0,
+      lastOrderDate: '-'
     }));
   },
 
   async getProducts(): Promise<Product[]> {
-    const { data } = await supabase.from('urun').select('*');
-    
-    return (data || []).map(u => ({
-      id: u.id,
-      code: u.id.substring(0, 8),
+    // Joining urun_stok to get quantity
+    const { data } = await supabase.from('urun').select('*, urun_stok(miktar)');
+
+    return (data || []).map((u: any) => ({
+      id: String(u.urun_id),
+      code: String(u.urun_id).padStart(8, '0'),
       name: u.ad,
       unit: 'adet',
-      currentStock: u.stok_miktari,
-      minStock: u.kritik_stok_seviyesi,
-      productionCost: u.satis_fiyati * 0.7,
-      sellingPrice: u.satis_fiyati,
+      currentStock: u.urun_stok?.[0]?.miktar || 0,
+      minStock: 0,
+      productionCost: (u.satis_fiyati || 0) * 0.7,
+      sellingPrice: u.satis_fiyati || 0,
       requiredMaterials: [],
-      width: u.en,
-      length: u.boy,
-      height: u.yukseklik,
-      volume: u.hacim,
-      weight: u.agirlik,
-      maxPressure: u.max_basinc,
-      maxTemperature: u.max_sicaklik,
-      imageUrl: u.resim_url
+      width: 0,
+      length: 0,
+      height: 0,
+      volume: 0,
+      weight: 0,
+      maxPressure: 0,
+      maxTemperature: 0,
+      imageUrl: ''
     }));
   }
 };
@@ -152,22 +153,22 @@ export const orderService = {
   async getAll(): Promise<ProductionOrder[]> {
     const { data } = await supabase
       .from('siparis')
-      .select('*, urun(ad)')
+      .select('*, urun(ad), musteri:musteriler(isim, soyisim)')
       .order('siparis_tarihi', { ascending: false });
-    
-    return (data || []).map((s, idx) => ({
-      id: s.id,
-      orderNumber: `ORD-${idx + 1000}`,
-      productId: s.urun_id || '',
+
+    return (data || []).map((s: any, idx: number) => ({
+      id: String(s.siparis_id),
+      orderNumber: `ORD-${s.siparis_id}`,
+      productId: String(s.urun_id || ''),
       productName: s.urun?.ad || 'Bilinmeyen',
-      quantity: s.miktar,
-      status: (s.durum === 'tamamlandi' ? 'completed' : s.durum === 'devam_ediyor' ? 'in_progress' : 'pending') as any,
+      quantity: 1, // Quantity missing in siparis table
+      status: (s.durum === 'tamamlandi' ? 'completed' : s.durum === 'uretimde' ? 'in_progress' : 'pending') as any,
       orderDate: s.siparis_tarihi,
       deliveryDate: s.teslim_tarihi,
       estimatedDelivery: s.teslim_tarihi,
-      customer: s.musteri,
+      customer: s.musteri ? `${s.musteri.isim} ${s.musteri.soyisim}` : 'Bilinmeyen',
       priority: 'medium' as any,
-      productionSource: (s.kaynak === 'stok' ? 'stock' : 'production') as any,
+      productionSource: 'production',
       progress: s.durum === 'tamamlandi' ? 100 : 0,
       assignedMachines: []
     }));
@@ -177,26 +178,25 @@ export const orderService = {
 export const alertService = {
   async getAll(): Promise<Alert[]> {
     const alerts: Alert[] = [];
-    
-    // Kritik stok uyarıları
+
     const { data: materials } = await supabase
       .from('hammadde')
       .select('*');
-    
+
     (materials || [])
-      .filter(m => m.stok_miktari < m.kritik_stok_seviyesi)
-      .forEach(m => {
+      .filter((m: any) => parseFloat(m.kalan_miktar || '0') < parseFloat(m.kritik_stok || '0'))
+      .forEach((m: any) => {
         alerts.push({
-          id: `stock-${m.id}`,
+          id: `stock-${m.hammadde_id}`,
           type: 'warning',
           title: 'Kritik Stok',
-          message: `${m.ad} stok seviyesi kritik: ${m.stok_miktari} ${m.birim}`,
+          message: `${m.stok_adi} stok seviyesi kritik: ${m.kalan_miktar} ${m.birim}`,
           timestamp: new Date().toISOString(),
           source: 'Stok Yönetimi',
           read: false
         });
       });
-    
+
     return alerts;
   }
 };

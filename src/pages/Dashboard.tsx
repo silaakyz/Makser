@@ -33,7 +33,7 @@ export default function Dashboard() {
       const { data, error } = await supabase
         .from("uretim_kayit")
         .select('*')
-        .order("baslangic_zamani", { ascending: false })
+        .order("baslama_zamani", { ascending: false })
         .limit(5);
 
       if (error) {

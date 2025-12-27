@@ -82,15 +82,39 @@ export default function Stoklar() {
       setLoading(true);
 
       const [{ data: hData, error: hError }, { data: uData, error: uError }] = await Promise.all([
-        supabase.from("hammadde").select("*").order("ad"),
-        supabase.from("urun").select("*").order("ad"),
+        supabase.from("hammadde").select("*").order("stok_adi"),
+        supabase.from("urun").select("*, urun_stok(miktar)").order("ad"),
       ]);
 
       if (hError) throw hError;
       if (uError) throw uError;
 
-      setHammaddeler(hData || []);
-      setUrunler(uData || []);
+      // Map hammadde (schema: hammadde_id, stok_adi, kalan_miktar, birim...)
+      const hMapped = (hData || []).map((h: any) => ({
+        id: h.hammadde_id,
+        ad: h.stok_adi,
+        stok_miktari: parseFloat(h.kalan_miktar || '0'),
+        birim: h.birim,
+        birim_fiyat: parseFloat(h.alis_fiyati || '0'), // Using alis_fiyati as cost
+        kritik_stok_seviyesi: parseFloat(h.kritik_stok || '0'),
+        tuketim_hizi: 0 // Missing in schema
+      }));
+
+      // Map urun with joined stock
+      const uMapped = (uData || []).map((u: any) => {
+        const stokInfo = u.urun_stok && u.urun_stok.length > 0 ? u.urun_stok[0] : null;
+        return {
+          id: u.urun_id,
+          ad: u.ad,
+          tur: u.tur || 'Standart',
+          stok_miktari: stokInfo ? (stokInfo.miktar || 0) : 0,
+          satis_fiyati: u.satis_fiyati || 0,
+          kritik_stok_seviyesi: 10 // Mock
+        };
+      });
+
+      setHammaddeler(hMapped);
+      setUrunler(uMapped);
     } catch (error: any) {
       console.error("Stoklar yüklenirken hata:", error);
       toast.error("Stok verileri yüklenemedi");
@@ -105,7 +129,7 @@ export default function Stoklar() {
       return;
     }
 
-    const selected = hammaddeler.find(h => h.id === hammaddeForm.id);
+    const selected = hammaddeler.find(h => h.id === Number(hammaddeForm.id) || h.id === hammaddeForm.id); // Check ID match (str vs number)
     if (!selected) {
       toast.error("Hammadde bulunamadı");
       return;
@@ -120,8 +144,8 @@ export default function Stoklar() {
 
       const { error } = await supabase
         .from("hammadde")
-        .update({ stok_miktari: yeniStok })
-        .eq("id", selected.id);
+        .update({ kalan_miktar: String(yeniStok) }) // Schema expects string for amount? Based on types.ts it is string | null
+        .eq("hammadde_id", selected.id);
 
       if (error) throw error;
 
@@ -143,7 +167,7 @@ export default function Stoklar() {
       return;
     }
 
-    const selected = urunler.find(u => u.id === urunForm.id);
+    const selected = urunler.find(u => u.id === Number(urunForm.id));
     if (!selected) {
       toast.error("Ürün bulunamadı");
       return;
@@ -152,14 +176,42 @@ export default function Stoklar() {
     try {
       setActionLoading(true);
       const miktar = Number(urunForm.miktar);
-      const yeniStok = urunForm.type === "azalis"
-        ? Math.max(0, selected.stok_miktari - miktar)
-        : selected.stok_miktari + miktar;
 
-      const { error } = await supabase
-        .from("urun")
-        .update({ stok_miktari: yeniStok })
-        .eq("id", selected.id);
+      // Get current stock from urun_stok table
+      const { data: currentStock, error: fetchError } = await supabase
+        .from("urun_stok")
+        .select("*")
+        .eq("urun_id", selected.id)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+
+      const currentQty = currentStock ? (currentStock.miktar || 0) : 0;
+      const yeniStok = urunForm.type === "azalis"
+        ? Math.max(0, currentQty - miktar)
+        : currentQty + miktar;
+
+      let error;
+
+      if (currentStock) {
+        // Update existing
+        const { error: updateError } = await supabase
+          .from("urun_stok")
+          .update({ miktar: yeniStok, son_guncelleme: new Date().toISOString() })
+          .eq("urun_stok_id", currentStock.urun_stok_id);
+        error = updateError;
+      } else {
+        // Insert new
+        const { error: insertError } = await supabase
+          .from("urun_stok")
+          .insert({
+            urun_stok_id: Math.floor(Date.now() / 1000), // Generate ID as it is not identity in provided schema
+            urun_id: selected.id,
+            miktar: yeniStok,
+            son_guncelleme: new Date().toISOString()
+          });
+        error = insertError;
+      }
 
       if (error) throw error;
 
@@ -285,9 +337,9 @@ export default function Stoklar() {
               </>
             )}
             <Button onClick={exportToExcel} variant="outline" className="gap-2">
-            <Download className="w-4 h-4" />
+              <Download className="w-4 h-4" />
               Excel Raporu
-          </Button>
+            </Button>
           </div>
         </div>
 
@@ -396,7 +448,7 @@ export default function Stoklar() {
                 {hammaddeler.map((hammadde) => {
                   const isDusuk = (hammadde.stok_miktari || 0) <= (hammadde.kritik_stok_seviyesi || 0);
                   const toplamDeger = (hammadde.stok_miktari || 0) * (hammadde.birim_fiyat || 0);
-                  
+
                   return (
                     <TableRow key={hammadde.id}>
                       <TableCell className="font-medium">{hammadde.ad}</TableCell>
@@ -455,7 +507,7 @@ export default function Stoklar() {
                 {urunler.map((urun) => {
                   const isDusuk = (urun.stok_miktari || 0) <= (urun.kritik_stok_seviyesi || 0);
                   const toplamDeger = (urun.stok_miktari || 0) * (urun.satis_fiyati || 0);
-                  
+
                   return (
                     <TableRow key={urun.id}>
                       <TableCell className="font-medium">{urun.ad}</TableCell>

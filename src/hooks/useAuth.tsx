@@ -40,6 +40,11 @@ const mapTitleToRole = (title: string | null): AppRole[] => {
   if (!title) return [];
   const normalized = title.toLowerCase().trim();
 
+  // Admin / Yönetici mapping
+  if (normalized.includes('yonetici') || normalized.includes('admin') || normalized.includes('yönetici')) {
+    return ['sirket_sahibi', 'genel_mudur'];
+  }
+
   if (normalized.includes('sahibi')) return ['sirket_sahibi'];
   if (normalized.includes('genel') && normalized.includes('mudur')) return ['genel_mudur'];
   if (normalized.includes('muhasebe')) return ['muhasebe'];

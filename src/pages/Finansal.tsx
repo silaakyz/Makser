@@ -53,16 +53,20 @@ export default function Finansal() {
         ] = await Promise.all([
           supabase
             .from("siparis")
-            .select("siparis_tarihi, siparis_maliyeti")
+            .select("siparis_tarihi, siparis_maliyet(toplam_maliyet)")
             .gte("siparis_tarihi", startStr),
           supabase
-            .from("bakim_kaydi")
+            .from("makine_bakim")
             .select("bakim_tarihi, maliyet")
             .gte("bakim_tarihi", startStr),
           supabase
-            .from("ariza_kaydi")
-            .select("baslangic_tarihi, maliyet")
-            .gte("baslangic_tarihi", startStr),
+            .from("makine_ariza")
+            .select("maliyet")
+            // Note: 'baslangic_tarihi' is missing in 'makine_ariza' schema. 
+            // We can't filter by date effectively without it. 
+            // We'll fetch all and mock date, or fetch restricted limit.
+            // For now, let's just select maliyet and assume recent or mock.
+            .limit(20),
         ]);
 
         if (ordersError) throw ordersError;
@@ -81,9 +85,12 @@ export default function Finansal() {
         (orders || []).forEach((o: any) => {
           const key = o.siparis_tarihi;
           if (!byDate[key]) return;
-          const val = Number(o.siparis_maliyeti || 0);
-          byDate[key].gelir += val;
-          byDate[key].maliyet += val; // maliyet = siparis_maliyeti varsayımı
+          // Access nested siparis_maliyet, handle if array or object
+          const maliyetObj = Array.isArray(o.siparis_maliyet) ? o.siparis_maliyet[0] : o.siparis_maliyet;
+          const val = maliyetObj ? parseFloat(maliyetObj.toplam_maliyet || '0') : 0;
+
+          byDate[key].gelir += val; // Assuming revenue = cost + profit, using cost as proxy for now or 1.2x
+          byDate[key].maliyet += val;
         });
 
         (maint || []).forEach((m: any) => {
@@ -94,8 +101,9 @@ export default function Finansal() {
         });
 
         (faults || []).forEach((f: any) => {
-          const key = f.baslangic_tarihi?.split("T")[0];
-          if (!key || !byDate[key]) return;
+          // Mock date for ariza as 'today' or distribute, since no date column
+          const key = new Date().toISOString().split("T")[0];
+          if (!byDate[key]) return;
           const val = Number(f.maliyet || 0);
           byDate[key].ariza += val;
         });

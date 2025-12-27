@@ -58,12 +58,42 @@ export default function Makine() {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('makine')
-        .select('*')
-        .order('ad');
+        .from("makine")
+        .select(`
+          makine_id,
+          ad,
+          tur,
+          kapasite,
+          toplam_calisma_saati,
+          makine_bakim (
+            bakim_tarihi,
+            sonraki_bakim_tarihi
+          )
+        `)
+        .order("ad");
 
       if (error) throw error;
-      setMakineler(data || []);
+
+      // Map to component interface with mocks
+      const mappedData: MakineData[] = (data || []).map((m: any) => {
+        // Derive maintenance info from joined makine_bakim table
+        const bakimlar = m.makine_bakim || [];
+        // Sort by date desc to get latest
+        bakimlar.sort((a: any, b: any) => new Date(b.bakim_tarihi).getTime() - new Date(a.bakim_tarihi).getTime());
+        const lastMaint = bakimlar[0];
+
+        return {
+          id: m.makine_id,
+          ad: m.ad,
+          tur: m.tur,
+          uretim_kapasitesi: parseInt(m.kapasite || '0'),
+          durum: "aktif", // Mock status as schema has no status col
+          son_bakim_tarihi: lastMaint?.bakim_tarihi ? new Date(lastMaint.bakim_tarihi).toISOString().split('T')[0] : null,
+          sonraki_bakim_tarihi: lastMaint?.sonraki_bakim_tarihi ? new Date(lastMaint.sonraki_bakim_tarihi).toISOString().split('T')[0] : null,
+        }
+      });
+
+      setMakineler(mappedData);
     } catch (error: any) {
       console.error('Makine verileri yüklenirken hata:', error);
       toast.error('Makine verileri yüklenemedi');
@@ -75,16 +105,24 @@ export default function Makine() {
   const updateMakineDurum = async (makineId: string, yeniDurum: 'aktif' | 'boşta' | 'arızalı' | 'bakımda') => {
     try {
       setUpdating(makineId);
-      
-      const { error } = await supabase
-        .from('makine')
-        .update({ durum: yeniDurum })
-        .eq('id', makineId);
 
-      if (error) throw error;
+      setUpdating(makineId);
 
-      toast.success('Makine durumu güncellendi');
-      fetchMakineler();
+      // Feature disabled: 'durum' column does not exist in 'makine' table
+      // const { error } = await supabase
+      //   .from('makine')
+      //   .update({ durum: yeniDurum })
+      //   .eq('makine_id', makineId);
+
+      // Mock delay
+      await new Promise(r => setTimeout(r, 500));
+      // if (error) throw error;
+
+      toast.info("Bu özellik veritabanı şema kısıtlaması nedeniyle şu an devre dışıdır.");
+      return; // Exit
+
+      // toast.success('Makine durumu güncellendi');
+      // fetchMakineler();
     } catch (error: any) {
       console.error('Makine durumu güncellenirken hata:', error);
       toast.error('Makine durumu güncellenemedi: ' + (error.message || 'Bilinmeyen hata'));
@@ -129,16 +167,16 @@ export default function Makine() {
       start.setDate(end.getDate() - 6);
 
       const { data, error } = await supabase
-        .from("uretim")
-        .select("baslangic_zamani, bitis_zamani")
-        .gte("baslangic_zamani", start.toISOString());
+        .from("uretim_kayit")
+        .select("baslama_zamani, bitis_zamani")
+        .gte("baslama_zamani", start.toISOString());
 
       if (error) throw error;
 
       const byDay: Record<string, number> = {};
 
       (data || []).forEach((row: any) => {
-        const bas = row.baslangic_zamani ? new Date(row.baslangic_zamani) : null;
+        const bas = row.baslama_zamani ? new Date(row.baslama_zamani) : null;
         const bit = row.bitis_zamani ? new Date(row.bitis_zamani) : null;
         if (!bas) return;
         const endTime = bit || new Date();
@@ -205,7 +243,7 @@ export default function Makine() {
 
     const fileName = `Makine_Raporu_${new Date().toISOString().split("T")[0]}.xlsx`;
     XLSX.writeFile(wb, fileName);
-    
+
     toast.success("Makine raporu başarıyla indirildi!");
   };
 
@@ -271,7 +309,7 @@ export default function Makine() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
                 {makineler.map((makine) => (
-                  <Card 
+                  <Card
                     key={makine.id}
                     className="bg-card border-2 border-border hover:border-primary/50 transition-all"
                   >
@@ -292,25 +330,25 @@ export default function Makine() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem 
+                                <DropdownMenuItem
                                   onClick={() => updateMakineDurum(makine.id, 'bakımda')}
                                   disabled={makine.durum === 'bakımda' || updating === makine.id}
                                 >
                                   Bakıma Al
                                 </DropdownMenuItem>
-                                <DropdownMenuItem 
+                                <DropdownMenuItem
                                   onClick={() => updateMakineDurum(makine.id, 'arızalı')}
                                   disabled={makine.durum === 'arızalı' || updating === makine.id}
                                 >
                                   Arızalı İşaretle
                                 </DropdownMenuItem>
-                                <DropdownMenuItem 
+                                <DropdownMenuItem
                                   onClick={() => updateMakineDurum(makine.id, 'aktif')}
                                   disabled={makine.durum === 'aktif' || updating === makine.id}
                                 >
                                   Aktif Yap
                                 </DropdownMenuItem>
-                                <DropdownMenuItem 
+                                <DropdownMenuItem
                                   onClick={() => updateMakineDurum(makine.id, 'boşta')}
                                   disabled={makine.durum === 'boşta' || updating === makine.id}
                                 >
