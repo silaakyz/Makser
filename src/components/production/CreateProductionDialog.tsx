@@ -100,6 +100,9 @@ export function CreateProductionDialog({ onProductionCreated }: { onProductionCr
                     makine_id: parseInt(formData.makine_id),
                     baslama_zamani: new Date(formData.baslama_zamani).toISOString(),
                     // bitis_zamani null ise "devam ediyor" demektir.
+                    hedef_adet: parseInt(formData.hedef_adet) || 100,
+                    uretilen_adet: 0,
+                    fire_adet: 0
                 } as any);
 
             if (error) throw error;
@@ -112,7 +115,8 @@ export function CreateProductionDialog({ onProductionCreated }: { onProductionCr
             setFormData({
                 urun_id: "",
                 makine_id: "",
-                baslama_zamani: new Date().toISOString().slice(0, 16),
+                hedef_adet: "100",
+                baslama_zamani: getLocalNow(),
             });
 
         } catch (error: any) {
