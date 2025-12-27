@@ -70,10 +70,53 @@ export default function Uretim() {
   const [urunler, setUrunler] = useState<UrunRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [productsLoading, setProductsLoading] = useState(true);
+  const [productsLoading, setProductsLoading] = useState(true);
   const [docDialogOpen, setDocDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<UrunRow | null>(null);
   const [docFile, setDocFile] = useState<File | null>(null);
   const [uploadingDoc, setUploadingDoc] = useState(false);
+
+  // Manual Completion State
+  const [completionDialogOpen, setCompletionDialogOpen] = useState(false);
+  const [selectedProduction, setSelectedProduction] = useState<UretimRow | null>(null);
+  const [completionData, setCompletionData] = useState({ uretilen: "", fire: "0" });
+
+  const handleOpenCompletion = (uretim: UretimRow) => {
+    setSelectedProduction(uretim);
+    setCompletionData({ uretilen: "", fire: "0" });
+    setCompletionDialogOpen(true);
+  };
+
+  const handleCompleteProduction = async () => {
+    if (!selectedProduction) return;
+    if (!completionData.uretilen) {
+      toast.error("Lütfen üretilen adedi girin.");
+      return;
+    }
+
+    try {
+      const uretilen = parseInt(completionData.uretilen);
+      const fire = parseInt(completionData.fire) || 0;
+
+      const { error } = await supabase
+        .from('uretim_kayit')
+        .update({
+          uretilen_adet: uretilen,
+          fire_adet: fire,
+          bitis_zamani: new Date().toISOString()
+        })
+        .eq('uretim_id', selectedProduction.id);
+
+      if (error) throw error;
+
+      toast.success("Üretim başarıyla tamamlandı!");
+      setCompletionDialogOpen(false);
+      fetchProductionData(); // Refresh list
+    } catch (err: any) {
+      console.error("Tamamlama hatası:", err);
+      toast.error("Kayıt güncellenemedi.");
+    }
+  };
 
   const isManager = roles.some(role =>
     ["sirket_sahibi", "genel_mudur", "uretim_sefi", "muhasebe"].includes(role)
@@ -375,19 +418,20 @@ export default function Uretim() {
                   <TableHead>Üretilen</TableHead>
                   <TableHead>Personel</TableHead>
                   <TableHead>Durum</TableHead>
+                  <TableHead className="text-right">İşlemler</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
                       Üretim verileri yükleniyor...
                     </TableCell>
                   </TableRow>
                 )}
                 {!loading && aktifUretimler.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
                       Aktif üretim bulunmamaktadır
                     </TableCell>
                   </TableRow>
@@ -404,7 +448,7 @@ export default function Uretim() {
                           {uretim.makine?.ad || "Bilinmiyor"}
                         </TableCell>
                         <TableCell>{uretim.urun?.ad || "Bilinmiyor"}</TableCell>
-                        <TableCell>{uretim.baslangic_zamani}</TableCell>
+                        <TableCell>{new Date(uretim.baslangic_zamani).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
@@ -422,6 +466,15 @@ export default function Uretim() {
                         <TableCell>-</TableCell>
                         <TableCell>
                           <StatusBadge status={uretim.durum} />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            size="sm"
+                            className="bg-success hover:bg-success/90 text-white"
+                            onClick={() => handleOpenCompletion(uretim)}
+                          >
+                            Tamamla
+                          </Button>
                         </TableCell>
                       </TableRow>
                     );
@@ -694,6 +747,61 @@ export default function Uretim() {
               className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {uploadingDoc ? "Yükleniyor..." : "Kaydet"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Üretim Tamamlama Dialogu */}
+      <Dialog open={completionDialogOpen} onOpenChange={setCompletionDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Üretimi Tamamla</DialogTitle>
+            <DialogDescription>
+              Gerçekleşen üretim verilerini girerek kaydı tamamlayın.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Hedeflenen Adet</label>
+              <Input
+                value={selectedProduction?.hedef_adet || 0}
+                disabled
+                className="bg-muted text-muted-foreground"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Üretilen Adet (Sağlam)</label>
+              <Input
+                type="number"
+                placeholder="Örn: 95"
+                value={completionData.uretilen}
+                onChange={(e) => setCompletionData({ ...completionData, uretilen: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Fire Adet (Hatalı)</label>
+              <Input
+                type="number"
+                placeholder="Örn: 5"
+                value={completionData.fire}
+                onChange={(e) => setCompletionData({ ...completionData, fire: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCompletionDialogOpen(false)}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 border-none"
+            >
+              İptal
+            </Button>
+            <Button
+              onClick={handleCompleteProduction}
+              className="bg-success hover:bg-success/90 text-white"
+            >
+              Tamamla ve Kaydet
             </Button>
           </DialogFooter>
         </DialogContent>
